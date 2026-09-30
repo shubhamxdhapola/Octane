@@ -74,6 +74,12 @@ export const aiApi = {
   chat: (message) => axiosInstance.post(API_PATHS.AI.CHAT, { message }).then(extractData),
 };
 
+export const petrolPumpApi = {
+  getProfile: () => axiosInstance.get(API_PATHS.PETROL_PUMP.PROFILE).then(extractData),
+  updateProfile: (payload) => axiosInstance.put(API_PATHS.PETROL_PUMP.PROFILE, payload).then(extractData),
+};
+
+
 export const downloadBlob = (response, fileName) => {
   const url = window.URL.createObjectURL(new Blob([response.data]));
   const link = document.createElement('a');

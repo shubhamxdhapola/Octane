@@ -6,10 +6,12 @@ import employeeReducer from './slices/employee.slice';
 import shiftReducer from './slices/shift.slice';
 import fuelPriceReducer from './slices/fuelPrice.slice';
 import refillReducer from './slices/refill.slice';
+import dashboardReducer from './slices/dashboard.slice';
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
+    dashboard: dashboardReducer,
     tank: tankReducer,
     machine: machineReducer,
     employee: employeeReducer,

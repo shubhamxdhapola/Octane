@@ -1,9 +1,14 @@
 export const API_PATHS = {
   AUTH: {
     LOGIN: '/api/auth/login',
+    REGISTER: '/api/auth/register',
+    CHECK_PHONE: '/api/auth/check-phone',
     LOGOUT: '/api/auth/logout',
     GET_PROFILE: '/api/auth/get-user-info',
     CHANGE_PASSWORD: '/api/auth/change-password',
+  },
+  PETROL_PUMP: {
+    PROFILE: '/api/petrol-pump/profile',
   },
   USER: {
     GET_ALL: '/api/users',

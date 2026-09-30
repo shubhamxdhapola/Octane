@@ -4,6 +4,7 @@ import User from "../models/user.model.js"
 export const createUser = async (req, res) => {
     try {
         const { name, phone, password } = req.body
+        const petrolPumpId = req.user.petrolPumpId
 
         const user = await User.findOne({ phone })
         if (user) {
@@ -11,7 +12,11 @@ export const createUser = async (req, res) => {
         }
 
         const newUser = await User.create({
-            name, phone, password, role: 'employee'
+            name,
+            phone,
+            password,
+            role: 'employee',
+            petrolPumpId,
         })
 
         return res.status(201).json({
@@ -33,12 +38,13 @@ export const createUser = async (req, res) => {
 export const getUser = async (req, res) => {
     try {
         const userId = req.params.id
+        const petrolPumpId = req.user.petrolPumpId
 
         if (!mongoose.Types.ObjectId.isValid(userId)) {
             return res.status(400).json({ message: "Invalid user id" });
         }
 
-        const user = await User.findById(userId);
+        const user = await User.findOne({ _id: userId, petrolPumpId });
         if (!user) {
             return res.status(404).json({ message: "User not found" })
         }
@@ -53,7 +59,8 @@ export const getUser = async (req, res) => {
 
 export const getUsers = async (req, res) => {
     try {
-        const users = await User.find({ role: 'employee' }).sort({ createdAt: -1 })
+        const petrolPumpId = req.user.petrolPumpId
+        const users = await User.find({ petrolPumpId, role: 'employee' }).sort({ createdAt: -1 })
         return res.status(200).json(users)
     } catch (error) {
         console.log("Error in getUsers controller : ", error)
@@ -65,6 +72,7 @@ export const updateUser = async (req, res) => {
     try {
         const { name, phone, isActive } = req.body
         const userId = req.params.id
+        const petrolPumpId = req.user.petrolPumpId
 
         if (!mongoose.Types.ObjectId.isValid(userId)) {
             return res.status(400).json({ message: "Invalid user id" });
@@ -82,8 +90,9 @@ export const updateUser = async (req, res) => {
         if (phone) updates.phone = phone
         if (isActive !== undefined) updates.isActive = isActive
 
-        const updatedUser = await User.findByIdAndUpdate(
-            userId, updates,
+        const updatedUser = await User.findOneAndUpdate(
+            { _id: userId, petrolPumpId },
+            updates,
             { runValidators: true, returnDocument: 'after' }
         )
 
@@ -101,18 +110,19 @@ export const updateUser = async (req, res) => {
 export const deleteUser = async (req, res) => {
     try {
         const userId = req.params.id
+        const petrolPumpId = req.user.petrolPumpId
 
         if (!mongoose.Types.ObjectId.isValid(userId)) {
             return res.status(400).json({ message: "Invalid user id" });
         }
 
-        const user = await User.findByIdAndDelete(userId)
+        const user = await User.findOneAndDelete({ _id: userId, petrolPumpId })
         if (!user) {
             return res.status(404).json({ message: "User not found" })
         }
         return res.status(200).json({ message: "User deleted successfully" })
     } catch (error) {
-        console.log("Error in createUser controller : ", error)
+        console.log("Error in deleteUser controller : ", error)
         return res.status(500).json({ message: "Internal server error" })
     }
 }

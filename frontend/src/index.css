@@ -8,11 +8,19 @@
   box-sizing: border-box;
 }
 
+html {
+  scrollbar-gutter: stable;
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
 body {
   margin: 0;
   font-family: 'Sora', sans-serif;
   color: #050b3f;
   background: #f8fbff;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 button,

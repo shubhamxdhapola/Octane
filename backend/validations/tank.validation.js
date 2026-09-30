@@ -18,8 +18,8 @@ export const createTankSchema = z
             .trim()
             .transform((value) => value.toUpperCase())
             .pipe(
-                z.enum(["PETROL", "DIESEL"], {
-                    error: "Fuel type must be either PETROL or DIESEL",
+                z.enum(["PETROL", "DIESEL", "PREMIUM"], {
+                    error: "Fuel type must be either PETROL, DIESEL or PREMIUM",
                 })
             ),
 
@@ -64,7 +64,7 @@ export const updateTankSchema = z
             .optional(),
 
         isActive: z
-            .boolean({error : "Must be a boolean value"})
+            .boolean({ error: "Must be a boolean value" })
             .optional(),
     })
     .refine(

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import toast from "react-hot-toast";
+import { showSuccessToast, showErrorToast } from "../../utils/helper";
 import {
   FiSend,
   FiCopy,
@@ -135,7 +135,7 @@ function MarkdownResponse({ content, isNew, onComplete }) {
 
 export default function Chat() {
   const [sessions, setSessions] = useState(() => {
-    const saved = localStorage.getItem("sai_chat_sessions");
+    const saved = localStorage.getItem("octane_chat_sessions") || localStorage.getItem("sai_chat_sessions");
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -157,13 +157,13 @@ export default function Chat() {
   });
 
   const [activeSessionId, setActiveSessionId] = useState(() => {
-    const savedActive = localStorage.getItem("sai_chat_active_session_id");
+    const savedActive = localStorage.getItem("octane_chat_active_session_id") || localStorage.getItem("sai_chat_active_session_id");
     if (savedActive) return savedActive;
     return sessions[0]?.id || "";
   });
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
-    const saved = localStorage.getItem("sai_chat_sidebar_open");
+    const saved = localStorage.getItem("octane_chat_sidebar_open") || localStorage.getItem("sai_chat_sidebar_open");
     return saved !== null ? JSON.parse(saved) : false;
   });
   const [input, setInput] = useState("");
@@ -177,6 +177,7 @@ export default function Chat() {
 
   useEffect(() => {
     function handleClickOutside(event) {
+      if (window.innerWidth >= 1024) return;
       if (
         sidebarRef.current &&
         !sidebarRef.current.contains(event.target) &&
@@ -193,7 +194,7 @@ export default function Chat() {
 
   // Sync sidebar open state to localStorage
   useEffect(() => {
-    localStorage.setItem("sai_chat_sidebar_open", JSON.stringify(isSidebarOpen));
+    localStorage.setItem("octane_chat_sidebar_open", JSON.stringify(isSidebarOpen));
   }, [isSidebarOpen]);
 
   const activeSession = sessions.find((s) => s.id === activeSessionId) ||
@@ -210,12 +211,12 @@ export default function Chat() {
 
   // Sync sessions to localStorage
   useEffect(() => {
-    localStorage.setItem("sai_chat_sessions", JSON.stringify(sessions));
+    localStorage.setItem("octane_chat_sessions", JSON.stringify(sessions));
   }, [sessions]);
 
   // Sync activeSessionId to localStorage
   useEffect(() => {
-    localStorage.setItem("sai_chat_active_session_id", activeSessionId);
+    localStorage.setItem("octane_chat_active_session_id", activeSessionId);
   }, [activeSessionId]);
 
   useEffect(() => {
@@ -245,7 +246,7 @@ export default function Chat() {
       };
       setSessions([resetSession]);
       setActiveSessionId(resetSession.id);
-      toast.success("Chat history cleared.");
+      showSuccessToast("Chat history cleared.");
       return;
     }
 
@@ -255,7 +256,7 @@ export default function Chat() {
     if (activeSessionId === sessionId) {
       setActiveSessionId(filtered[0]?.id || "");
     }
-    toast.success("Chat deleted.");
+    showSuccessToast("Chat deleted.");
   };
 
   const handleSend = async (textToSend) => {
@@ -335,10 +336,10 @@ export default function Chat() {
             "Failed to connect to the server. Please try again.",
           );
 
-      toast.error(
+      showErrorToast(
         isQuota
           ? "API Quota Exceeded"
-          : apiErrorMessage(error, "Failed to get response from SaiBot."),
+          : apiErrorMessage(error, "Failed to get response from OctaneIQ."),
       );
 
       const errorMessage = {
@@ -368,7 +369,7 @@ export default function Chat() {
   const handleCopyText = (text, id) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
-    toast.success("Copied to clipboard!");
+    showSuccessToast("Copied to clipboard!");
     setTimeout(() => setCopiedId(null), 2000);
   };
 
@@ -414,7 +415,7 @@ export default function Chat() {
   ];
 
   return (
-    <div className="w-full flex h-[calc(100vh-92px)] bg-white overflow-hidden relative">
+    <div className="w-full flex h-[calc(100vh-80px)] bg-white overflow-hidden relative">
       {/* Mobile Backdrop Overlay */}
       {isSidebarOpen && (
         <div
@@ -434,7 +435,7 @@ export default function Chat() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-base font-bold text-ink leading-none">
-                  Sai AI Assistant
+                  OctaneIQ
                 </h1>
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -461,14 +462,14 @@ export default function Chat() {
         </header>
 
         {/* Chat Messages Workspace */}
-        <div className="flex-1 overflow-y-auto py-8">
+        <div className={`flex-1 overflow-y-auto [scrollbar-gutter:stable] ${messages.length === 0 ? "py-4 sm:py-6" : "py-8"}`}>
           <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 space-y-6">
             {messages.length === 0 ? (
               /* Welcome / Suggestion Screen */
-              <div className="flex flex-col justify-center py-6">
-                <div className="text-center mb-8">
+              <div className="flex flex-col justify-center py-2 sm:py-4">
+                <div className="text-center mb-6">
                   <h2 className="text-3xl sm:text-4xl font-extrabold text-ink tracking-tight">
-                    Welcome to Sai AI
+                    Welcome to OctaneIQ
                   </h2>
                   <p className="mt-3 text-sm font-semibold text-muted leading-relaxed max-w-xl mx-auto px-2">
                     Ask a question to analyze operations, calculate fuel sales,
@@ -587,7 +588,7 @@ export default function Chat() {
                       <div className="rounded-2xl px-4 py-3.5 bg-slate-50 border border-slate-100 rounded-tl-none">
                         <div className="flex items-center gap-3">
                           <span className="text-xs font-bold text-muted animate-pulse">
-                            SaiBot is thinking
+                            OctaneIQ is thinking
                           </span>
                           <div className="flex gap-1 items-center">
                             <span className="h-1.5 w-1.5 rounded-full bg-brand animate-bounce [animation-delay:-0.3s]"></span>
@@ -634,7 +635,7 @@ export default function Chat() {
               </button>
             </form>
             <p className="mt-2.5 text-center text-[10px] font-semibold text-muted select-none">
-              SaiBot may generate inaccurate information about shifts, refills,
+              OctaneIQ may generate inaccurate information about shifts, refills,
               or sales. Double check critical metrics.
             </p>
           </div>
@@ -711,7 +712,7 @@ export default function Chat() {
         {/* Sidebar Footer */}
         <div className="p-4 border-t border-slate-100/80 bg-slate-50/20 text-center shrink-0">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-            Sai Pump Assistant v1.4
+            OctaneIQ Intelligence v2.0
           </span>
         </div>
       </div>

@@ -1,9 +1,19 @@
+import mongoose from "mongoose";
 import FuelPrice from "../models/fuel.price.model.js";
 import getDateRange from "../utils/getDateRange.js";
 
-export const getCurrentFuelPrices = async () => {
+export const getCurrentFuelPrices = async (petrolPumpId) => {
+    const match = {};
+    if (petrolPumpId) {
+        match.petrolPumpId = mongoose.Types.ObjectId.isValid(petrolPumpId)
+            ? new mongoose.Types.ObjectId(petrolPumpId)
+            : petrolPumpId;
+    }
 
     const prices = await FuelPrice.aggregate([
+        {
+            $match: match
+        },
         {
             $sort: {
                 effectiveFrom: -1
@@ -34,18 +44,23 @@ export const getCurrentFuelPrices = async () => {
     return result;
 };
 
-export const getFuelPriceHistory = async (period = "7", startDate, endDate) => {
+export const getFuelPriceHistory = async (petrolPumpId, period = "7", startDate, endDate) => {
 
     const { startDate: sDate, endDate: eDate } = getDateRange(period, startDate, endDate);
 
-    return await FuelPrice.find({
+    const filter = {
         effectiveFrom: {
             $gte: sDate,
             $lte: eDate
         }
-    })
+    };
+    if (petrolPumpId) {
+        filter.petrolPumpId = petrolPumpId;
+    }
+
+    return await FuelPrice.find(filter)
         .sort({
             effectiveFrom: -1
         });
 
-};
+};

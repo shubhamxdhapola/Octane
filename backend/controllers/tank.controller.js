@@ -4,7 +4,8 @@ import Nozzle from "../models/nozzle.model.js"
 
 export const getTanks = async (req, res) => {
     try {
-        const tanks = await Tank.find().sort({ createdAt: -1 })
+        const petrolPumpId = req.user.petrolPumpId;
+        const tanks = await Tank.find({ petrolPumpId }).sort({ createdAt: -1 })
         return res.status(200).json(tanks)
     } catch (error) {
         console.log("Error in getTanks controller : ", error)
@@ -15,11 +16,13 @@ export const getTanks = async (req, res) => {
 export const getTank = async (req, res) => {
     try {
         const tankId = req.params.id
+        const petrolPumpId = req.user.petrolPumpId;
+
         if (!mongoose.Types.ObjectId.isValid(tankId)) {
             return res.status(400).json({ message: "Invalid tank id" });
         }
 
-        const tank = await Tank.findById(tankId);
+        const tank = await Tank.findOne({ _id: tankId, petrolPumpId });
         if (!tank) {
             return res.status(404).json({ message: "Tank not found" })
         }
@@ -33,14 +36,20 @@ export const getTank = async (req, res) => {
 export const createTank = async (req, res) => {
     try {
         const { name, tankNumber, fuelType, capacity, currentQuantity } = req.body
+        const petrolPumpId = req.user.petrolPumpId;
 
-        const existingTank = await Tank.findOne({ tankNumber })
+        const existingTank = await Tank.findOne({ tankNumber, petrolPumpId })
         if (existingTank) {
-            return res.status(409).json({ message: "Tank number already exists" })
+            return res.status(409).json({ message: "Tank number already exists in your petrol pump" })
         }
 
         const newTank = await Tank.create({
-            name, tankNumber, fuelType, capacity, currentQuantity
+            name,
+            tankNumber,
+            fuelType,
+            capacity,
+            currentQuantity,
+            petrolPumpId,
         })
         return res.status(201).json({ newTank, message: "Tank created successfully" })
 
@@ -54,17 +63,18 @@ export const updateTank = async (req, res) => {
     try {
         const { name, tankNumber, capacity, isActive } = req.body;
         const tankId = req.params.id
+        const petrolPumpId = req.user.petrolPumpId;
 
         if (!mongoose.Types.ObjectId.isValid(tankId)) {
             return res.status(400).json({ message: "Invalid tank id" });
         }
 
-        const tank = await Tank.findById(tankId)
+        const tank = await Tank.findOne({ _id: tankId, petrolPumpId })
         if (!tank) {
             return res.status(404).json({ message: "Tank not found" });
         }
 
-        const occupiedNozzle = await Nozzle.findOne({ tankId, isOccupied: true })
+        const occupiedNozzle = await Nozzle.findOne({ tankId, petrolPumpId, isOccupied: true })
         if (occupiedNozzle) {
             return res.status(409).json({
                 message: "Cannot modify tank while one or more nozzles are occupied",
@@ -80,18 +90,23 @@ export const updateTank = async (req, res) => {
         const updates = {}
 
         if (tankNumber) {
-            const existingTank = await Tank.findOne({ tankNumber, _id: { $ne: tankId }, });
+            const existingTank = await Tank.findOne({
+                tankNumber,
+                petrolPumpId,
+                _id: { $ne: tankId },
+            });
             if (existingTank) {
-                return res.status(409).json({ message: "Tank number already exists", });
+                return res.status(409).json({ message: "Tank number already exists in your petrol pump" });
             }
             updates.tankNumber = tankNumber;
         }
         if (name) updates.name = name;
         if (capacity !== undefined) updates.capacity = capacity
-        if (isActive != undefined) updates.isActive = isActive
+        if (isActive !== undefined) updates.isActive = isActive
 
-        const updatedTank = await Tank.findByIdAndUpdate(
-            tankId, updates,
+        const updatedTank = await Tank.findOneAndUpdate(
+            { _id: tankId, petrolPumpId },
+            updates,
             { runValidators: true, returnDocument: 'after' }
         )
 
@@ -107,18 +122,21 @@ export const updateTank = async (req, res) => {
 export const deleteTank = async (req, res) => {
     try {
         const tankId = req.params.id
+        const petrolPumpId = req.user.petrolPumpId;
 
         if (!mongoose.Types.ObjectId.isValid(tankId)) {
             return res.status(400).json({ message: "Invalid tank id" });
         }
 
-        const tank = await Tank.findById(tankId)
+        const tank = await Tank.findOne({ _id: tankId, petrolPumpId })
         if (!tank) {
             return res.status(404).json({ message: "Tank not found" })
         }
 
         const occupiedNozzle = await Nozzle.findOne({
-            tankId, isOccupied: true,
+            tankId,
+            petrolPumpId,
+            isOccupied: true,
         });
 
         if (occupiedNozzle) {
@@ -126,7 +144,7 @@ export const deleteTank = async (req, res) => {
                 message: "Cannot delete tank while one or more connected nozzles are occupied",
             });
         }
-        await Tank.findByIdAndDelete(tankId)
+        await Tank.findOneAndDelete({ _id: tankId, petrolPumpId })
         return res.status(200).json({ message: "Tank deleted successfully" })
 
     } catch (error) {

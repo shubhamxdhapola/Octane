@@ -12,6 +12,64 @@ export const getAllMachines = createAsyncThunk(
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || error.response?.data || "Unable to fetch machines");
         }
+    },
+    {
+        condition: (force, { getState }) => {
+            if (force) return true;
+            const { machine } = getState();
+            if (machine.allMachines !== null) {
+                return false;
+            }
+            return true;
+        }
+    }
+);
+
+export const getMachineSalesSummary = createAsyncThunk(
+    'api/machine/salesSummary',
+    async (_, { rejectWithValue }) => {
+        try {
+            const response = await axiosInstance.get(API_PATHS.MACHINE.SALES_SUMMARY);
+            return response.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data?.message || "Unable to fetch sales summary");
+        }
+    },
+    {
+        condition: (force, { getState }) => {
+            if (force) return true;
+            const { machine } = getState();
+            if (machine.salesSummary !== null) {
+                return false;
+            }
+            return true;
+        }
+    }
+);
+
+export const getNozzlesForMachines = createAsyncThunk(
+    'api/machine/getNozzles',
+    async (machineIds, { rejectWithValue }) => {
+        try {
+            const entries = await Promise.all(
+                machineIds.map(async (id) => [
+                    id,
+                    await axiosInstance.get(API_PATHS.MACHINE.NOZZLES(id)).then(r => r.data).catch(() => [])
+                ])
+            );
+            return Object.fromEntries(entries);
+        } catch (error) {
+            return rejectWithValue("Unable to fetch nozzles");
+        }
+    },
+    {
+        condition: (machineIds, { getState }) => {
+            const { machine } = getState();
+            if (machine.nozzlesByMachine !== null) {
+                return false;
+            }
+            return true;
+        }
     }
 );
 
@@ -55,12 +113,20 @@ const machineSlice = createSlice({
     name: 'machine',
     initialState: {
         allMachines: null,
-        fetchingMachines: true,
+        salesSummary: null,
+        nozzlesByMachine: null,
+        fetchingMachines: false,
         savingMachine: false,
         deletingMachine: false,
         error: null,
     },
-    reducers: {},
+    reducers: {
+        invalidateMachines: (state) => {
+            state.allMachines = null;
+            state.salesSummary = null;
+            state.nozzlesByMachine = null;
+        }
+    },
     extraReducers: (builder) => {
         builder
             .addCase(getAllMachines.pending, (state) => {
@@ -74,6 +140,12 @@ const machineSlice = createSlice({
             .addCase(getAllMachines.rejected, (state, action) => {
                 state.fetchingMachines = false;
                 state.error = action.payload;
+            })
+            .addCase(getMachineSalesSummary.fulfilled, (state, action) => {
+                state.salesSummary = action.payload;
+            })
+            .addCase(getNozzlesForMachines.fulfilled, (state, action) => {
+                state.nozzlesByMachine = action.payload;
             })
             .addCase(addMachine.pending, (state) => {
                 state.savingMachine = true;
@@ -120,8 +192,12 @@ const machineSlice = createSlice({
             })
             .addCase(logoutUser.fulfilled, (state) => {
                 state.allMachines = null;
+                state.salesSummary = null;
+                state.nozzlesByMachine = null;
+                state.fetchingMachines = false;
             });
     }
 });
 
+export const { invalidateMachines } = machineSlice.actions;
 export default machineSlice.reducer;

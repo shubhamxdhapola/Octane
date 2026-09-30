@@ -242,9 +242,10 @@ export default function MachineDetails() {
       showSuccessToast("Nozzle deleted successfully");
       setDeleteNozzleConfirm(null);
     } catch (err) {
-      showErrorToast(err || "Unable to delete nozzle");
+      showErrorToast(apiErrorMessage(err, "Unable to delete nozzle"));
     } finally {
       setDeleting(false);
+      setDeleteNozzleConfirm(null);
     }
   };
 
@@ -345,7 +346,7 @@ export default function MachineDetails() {
             <thead className="bg-slate-50 text-muted">
               <tr>
                 <th className="p-4">Nozzle</th>
-                <th>Tank</th>
+                <th>Tank Number</th>
                 <th>Fuel Type</th>
                 <th>Current Reading</th>
                 <th>Occupancy</th>
@@ -358,7 +359,7 @@ export default function MachineDetails() {
               {nozzles.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((nozzle) => (
                 <tr key={nozzle._id} className="border-t border-slate-200">
                   <td className="p-4 font-bold">{nozzle.nozzleNumber}</td>
-                  <td>{nozzle.tankId?.name || "-"}</td>
+                  <td>{nozzle.tankId?.tankNumber || "-"}</td>
                   <td>
                     <Badge
                       tone={

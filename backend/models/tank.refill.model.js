@@ -1,6 +1,11 @@
 import mongoose from "mongoose";
 
 const tankRefillSchema = new mongoose.Schema({
+    petrolPumpId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "PetrolPump",
+        required: true,
+    },
     tankId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Tank",
@@ -25,6 +30,8 @@ const tankRefillSchema = new mongoose.Schema({
         maxlength: [200, "Remarks cannot exceed 200 characters"],
     },
 }, { timestamps: true, });
+
+tankRefillSchema.index({ petrolPumpId: 1, tankId: 1, refillDate: -1 });
 
 const TankRefill = mongoose.model("TankRefill", tankRefillSchema);
 

@@ -1,14 +1,28 @@
+import mongoose from "mongoose";
 import Shift from "../models/shift.model.js";
 import Tank from "../models/tank.model.js";
 
-export const getOverviewCards = async (startDate, endDate) => {
+const toObjectId = (id) => {
+    if (!id) return null;
+    return mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id;
+};
+
+export const getOverviewCards = async (petrolPumpId, startDate, endDate) => {
+    const pumpObjectId = toObjectId(petrolPumpId);
+
+    const completedMatch = {
+        status: "COMPLETED",
+        endTime: { $gte: startDate, $lte: endDate }
+    };
+    if (pumpObjectId) completedMatch.petrolPumpId = pumpObjectId;
+
+    const ongoingMatch = { status: "ONGOING" };
+    if (pumpObjectId) ongoingMatch.petrolPumpId = pumpObjectId;
+
     const overview = await Shift.aggregate([{
         $facet: {
             completed: [{
-                $match: {
-                    status: "COMPLETED",
-                    endTime: { $gte: startDate, $lte: endDate }
-                }
+                $match: completedMatch
             }, {
                 $group: {
                     _id: null,
@@ -18,7 +32,7 @@ export const getOverviewCards = async (startDate, endDate) => {
                 }
             }],
             ongoing: [{
-                $match: { status: "ONGOING" }
+                $match: ongoingMatch
             }, { $count: "ongoingShifts" }]
         }
     }]);
@@ -38,9 +52,12 @@ export const getOverviewCards = async (startDate, endDate) => {
     };
 };
 
-export const getTankStatus = async () => {
-    const tanks = await Tank.find({ isActive: true })
-        .select("name fuelType capacity currentQuantity")
+export const getTankStatus = async (petrolPumpId) => {
+    const filter = { isActive: true };
+    if (petrolPumpId) filter.petrolPumpId = petrolPumpId;
+
+    const tanks = await Tank.find(filter)
+        .select("name tankNumber fuelType capacity currentQuantity")
         .sort({ fuelType: 1, name: 1 });
 
     return tanks.map(tank => {
@@ -48,6 +65,7 @@ export const getTankStatus = async () => {
         return {
             tankId: tank._id,
             name: tank.name,
+            tankNumber: tank.tankNumber,
             fuelType: tank.fuelType,
             capacity: tank.capacity,
             remaining: tank.currentQuantity,
@@ -56,12 +74,17 @@ export const getTankStatus = async () => {
     });
 };
 
-export const getFuelSoldSummary = async (startDate, endDate) => {
+export const getFuelSoldSummary = async (petrolPumpId, startDate, endDate) => {
+    const pumpObjectId = toObjectId(petrolPumpId);
+
+    const match = {
+        status: "COMPLETED",
+        endTime: { $gte: startDate, $lte: endDate }
+    };
+    if (pumpObjectId) match.petrolPumpId = pumpObjectId;
+
     const result = await Shift.aggregate([{
-        $match: {
-            status: "COMPLETED",
-            endTime: { $gte: startDate, $lte: endDate }
-        }
+        $match: match
     },
     { $unwind: "$nozzles" },
     {
@@ -98,12 +121,17 @@ export const getFuelSoldSummary = async (startDate, endDate) => {
     return summary;
 };
 
-export const getRevenueChart = async (startDate, endDate, period) => {
+export const getRevenueChart = async (petrolPumpId, startDate, endDate, period) => {
+    const pumpObjectId = toObjectId(petrolPumpId);
+
+    const match = {
+        status: "COMPLETED",
+        endTime: { $gte: startDate, $lte: endDate }
+    };
+    if (pumpObjectId) match.petrolPumpId = pumpObjectId;
+
     const revenue = await Shift.aggregate([{
-        $match: {
-            status: "COMPLETED",
-            endTime: { $gte: startDate, $lte: endDate }
-        }
+        $match: match
     }, {
         $group: {
             _id: {
@@ -151,12 +179,17 @@ export const getRevenueChart = async (startDate, endDate, period) => {
     return chart;
 };
 
-export const getFuelSoldChart = async (startDate, endDate, period) => {
+export const getFuelSoldChart = async (petrolPumpId, startDate, endDate, period) => {
+    const pumpObjectId = toObjectId(petrolPumpId);
+
+    const match = {
+        status: "COMPLETED",
+        endTime: { $gte: startDate, $lte: endDate }
+    };
+    if (pumpObjectId) match.petrolPumpId = pumpObjectId;
+
     const result = await Shift.aggregate([{
-        $match: {
-            status: "COMPLETED",
-            endTime: { $gte: startDate, $lte: endDate }
-        }
+        $match: match
     },
     { $unwind: "$nozzles" }, {
         $group: {
@@ -218,8 +251,11 @@ export const getFuelSoldChart = async (startDate, endDate, period) => {
     return chart;
 };
 
-export const getRecentShifts = async () => {
-    const shifts = await Shift.find()
+export const getRecentShifts = async (petrolPumpId) => {
+    const filter = {};
+    if (petrolPumpId) filter.petrolPumpId = petrolPumpId;
+
+    const shifts = await Shift.find(filter)
         .populate("employeeId", "name")
         .populate("machineId", "name machineNumber")
         .sort({ startTime: -1 })
@@ -235,3 +271,4 @@ export const getRecentShifts = async () => {
         startTime: shift.startTime
     }));
 };
+

@@ -13,6 +13,7 @@ export const startShift = async (req, res) => {
 
     try {
         const employeeId = req.user._id;
+        const petrolPumpId = req.user.petrolPumpId;
         const { machineId, nozzleIds } = req.body;
 
         if (req.user.role === 'admin') {
@@ -36,7 +37,7 @@ export const startShift = async (req, res) => {
 
         session.startTransaction();
 
-        const employee = await User.findById(employeeId).session(session);
+        const employee = await User.findOne({ _id: employeeId, petrolPumpId }).session(session);
 
         if (!employee) {
             await session.abortTransaction();
@@ -50,7 +51,7 @@ export const startShift = async (req, res) => {
 
         // Verify if employee has already a ongoing shift
         const existingShift = await Shift.findOne({
-            employeeId, status: "ONGOING"
+            employeeId, petrolPumpId, status: "ONGOING"
         }).session(session);
 
         if (existingShift) {
@@ -58,12 +59,12 @@ export const startShift = async (req, res) => {
             return res.status(409).json({ message: "Employee already has an ongoing shift" });
         }
 
-        const machine = await Machine.findById(machineId)
+        const machine = await Machine.findOne({ _id: machineId, petrolPumpId })
             .session(session);
 
         if (!machine) {
             await session.abortTransaction();
-            return res.status(404).json({ message: "Machine not found" });
+            return res.status(404).json({ message: "Machine not found in your petrol pump" });
         }
 
         if (!machine.isActive) {
@@ -71,14 +72,15 @@ export const startShift = async (req, res) => {
             return res.status(400).json({ message: "Machine is inactive" });
         }
 
-        // Verify if the selected nozzles are exists
+        // Verify if the selected nozzles exist and belong to this petrol pump
         const nozzles = await Nozzle.find({
-            _id: { $in: nozzleIds }
+            _id: { $in: nozzleIds },
+            petrolPumpId
         }).session(session);
 
         if (nozzles.length !== nozzleIds.length) {
             await session.abortTransaction();
-            return res.status(404).json({ message: "One or more nozzles not found" });
+            return res.status(404).json({ message: "One or more nozzles not found in your petrol pump" });
         }
 
         for (const nozzle of nozzles) {
@@ -115,6 +117,7 @@ export const startShift = async (req, res) => {
         }));
 
         const shift = await Shift.create([{
+            petrolPumpId,
             employeeId,
             machineId,
             nozzles: shiftNozzles
@@ -124,7 +127,8 @@ export const startShift = async (req, res) => {
 
         // Mark all selected nozzles as occupied
         await Nozzle.updateMany({
-            _id: { $in: nozzleIds }
+            _id: { $in: nozzleIds },
+            petrolPumpId
         },
             { $set: { isOccupied: true } },
             { session }
@@ -171,6 +175,7 @@ export const endShift = async (req, res) => {
 
     try {
         const shiftId = req.params.id;
+        const petrolPumpId = req.user.petrolPumpId;
         const { readings } = req.body;
 
         if (!mongoose.Types.ObjectId.isValid(shiftId)) {
@@ -191,7 +196,7 @@ export const endShift = async (req, res) => {
 
         session.startTransaction();
 
-        const shift = await Shift.findById(shiftId)
+        const shift = await Shift.findOne({ _id: shiftId, petrolPumpId })
             .session(session);
 
         if (!shift) {
@@ -225,10 +230,11 @@ export const endShift = async (req, res) => {
         const nozzles = await Nozzle.find({
             _id: {
                 $in: nozzleIds
-            }
+            },
+            petrolPumpId
         }).populate("tankId").session(session);
 
-        const { PETROL, DIESEL, PREMIUM } = await getCurrentFuelPrices(session); // Get the lastest fuel prices
+        const { PETROL, DIESEL, PREMIUM } = await getCurrentFuelPrices(petrolPumpId, session); // Get the latest fuel prices for this pump
 
         const priceMap = new Map([ // Create a mapping of latest fuel prices e.g - FuelType : Price
             ["PETROL", PETROL ? PETROL.price : 0],
@@ -311,7 +317,7 @@ export const endShift = async (req, res) => {
 
         // Decrease the total fuel sold during shift from each tank
         for (const [tankId, quantity] of tankDeductions) {
-            const tank = await Tank.findById(tankId)
+            const tank = await Tank.findOne({ _id: tankId, petrolPumpId })
                 .session(session);
 
             if (!tank) {
@@ -385,8 +391,9 @@ export const getShifts = async (req, res) => {
     try {
 
         let { status, employeeId, machineId, startDate, endDate } = req.query;
+        const petrolPumpId = req.user.petrolPumpId;
 
-        const filter = {};
+        const filter = { petrolPumpId };
 
         if (req.user.role === 'employee') {
             filter.employeeId = req.user._id
@@ -457,6 +464,7 @@ export const getShift = async (req, res) => {
 
     try {
         const shiftId = req.params.id;
+        const petrolPumpId = req.user.petrolPumpId;
 
         if (!mongoose.Types.ObjectId.isValid(shiftId)) {
             return res.status(400).json({ message: "Invalid shift id" });
@@ -466,7 +474,7 @@ export const getShift = async (req, res) => {
             ? ""
             : "-totalAmount -nozzles.amount -nozzles.pricePerLitre"
 
-        const shift = await Shift.findById(shiftId).select(fields);
+        const shift = await Shift.findOne({ _id: shiftId, petrolPumpId }).select(fields);
 
         if (!shift) {
             return res.status(404).json({ message: "Shift not found" });

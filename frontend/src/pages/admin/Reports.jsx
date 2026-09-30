@@ -8,6 +8,8 @@ import { dateTime, number, rupee } from "../../utils/formatters";
 import { TableSkeleton } from "../../components/Skeletons";
 import Pagination from "../../components/Pagination";
 
+const reportsCache = new Map();
+
 export default function Reports() {
   const [tab, setTab] = useState("sales");
   const [period, setPeriod] = useState("7");
@@ -30,12 +32,19 @@ export default function Reports() {
 
   const load = async () => {
     if (period === "custom" && (!startDate || !endDate)) return;
+    const cacheKey = `${tab}_${JSON.stringify(params)}`;
+    if (reportsCache.has(cacheKey)) {
+      setData(reportsCache.get(cacheKey));
+      setError("");
+      return;
+    }
     setLoading(true);
     try {
       const payload =
         tab === "sales"
           ? await reportApi.sales(params)
           : await reportApi.refills(params);
+      reportsCache.set(cacheKey, payload);
       setData(payload);
       setError("");
     } catch (err) {

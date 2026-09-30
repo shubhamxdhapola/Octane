@@ -1,34 +1,39 @@
-# ⛽ Petrol Pump Management System with AI Assistant
+# ⛽ Octane — Petrol Pump Management & AI Platform
 
-An **AI-powered**, full-stack **MERN** application for managing petrol pump operations efficiently. The system automates daily operations such as employee shifts, fuel sales, tank inventory, fuel pricing, and reporting. It also includes an **AI-powered assistant** that allows admins to query business data using natural language.
+An **AI-powered, multi-tenant SaaS platform** for modern petrol pump management and retail station operations. Octane allows multiple petrol pump owners to register and manage their fuel retail business with complete data isolation, intelligent shift workflows, automated fuel pricing with live Indian market syncing, and a context-aware **AI assistant powered by Google Gemini**.
 
 ---
 
 ## ✨ Features
 
-### 🔐 Shared / Core Features
-- **Secure Authentication:** JWT-based authentication with safe HTTP-Only cookie storage to prevent XSS.
-- **Protected Routes:** Strict role-based client-side routing and backend middleware enforcement.
+### 🏢 Multi-Tenant SaaS Architecture
+- **Tenant Data Isolation:** Strict query-level tenant isolation ensuring Owner A never accesses Owner B's data (tanks, machines, nozzles, shifts, employees, refills, reports, or AI insights).
+- **Owner Self-Registration:** Streamlined onboarding flow allowing new station owners to register their organization, location, and credentials in seconds.
+- **Petrol Pump Profile Management:** Update station address, city, state, and pincode dynamically.
 
-### 👨‍💼 Admin Features
-- **Dashboard & Analytics:** Real-time summary cards, low stock alerts, and interactive charts tracking sales metrics.
-- **Employee Management:** CRUD interface for staff credentials, activation toggle, and performance analytics.
+### 🔐 Shared / Core Features
+- **Secure Authentication:** JWT-based authentication with HTTP-Only cookie storage to prevent XSS.
+- **Protected Routes:** Strict role-based client-side routing and backend middleware enforcement (`admin`/owner and `employee`).
+
+### 👨‍💼 Owner / Admin Features
+- **Dashboard & Analytics:** Real-time summary cards, low stock alerts, and interactive charts tracking sales metrics scoped to the owner's pump.
+- **Employee Management:** CRUD interface for station staff credentials, activation toggle, and performance analytics.
 - **Tank Management:** Add storage tanks, monitor live stock levels, and set safety alerts.
-- **Dispenser & Nozzle Configuration:** Connect machines to multiple nozzles, map them to fuel tanks, and track readings.
-- **Fuel Price Management:** Set active price per litre and maintain historic price tracking records.
+- **Dispenser & Nozzle Configuration:** Connect machines to multiple nozzles, map them to fuel tanks, and track readings with cross-tenant validation.
+- **Fuel Price Management & Live Sync:** Set active price per litre manually or sync live daily Indian market prices (via RapidAPI / Indian fuel price APIs) with location awareness and automated local caching.
 - **Tank Refill Management:** Log bulk supplier fuel refills to automatically increment tank capacity balances.
 - **Shift Auditing:** Monitor ongoing/completed worker shifts and review calculated discrepancies.
 - **Report Generation:** Compile daily sales/refill audits and export as formatted Excel spreadsheets.
-- **AI Assistant:** Conversational AI querying (powered by Google Gemini) to ask questions like:
+- **Tenant-Aware AI Assistant:** Conversational AI querying (powered by Google Gemini) strictly scoped to the authenticated owner's station data:
   - *"What is today's revenue?"*
   - *"Show today's sales report."*
   - *"Show performance for employee [Name]."*
   - *"Which tanks are running low?"*
-  - The AI understands user intent, queries database tables through backend services, and generates context-aware markdown replies.
+  - The AI understands user intent, queries tenant-scoped database collections through backend services, and generates context-aware markdown replies.
 
 ### 🧑‍🔧 Employee Features
-- **Shift Lifecycle Management:** Self-start shifts by machine/nozzles selection.
-- **Sales Readings Entry:** Opening reading(last closing reading) is pulled from the system and input final closing readings.
+- **Shift Lifecycle Management:** Self-start shifts by machine/nozzles selection belonging to their station.
+- **Sales Readings Entry:** Opening reading is pulled from the system and input final closing readings.
 - **Profile & Credentials:** View personal user profile and securely update passwords.
 
 ---
@@ -36,25 +41,25 @@ An **AI-powered**, full-stack **MERN** application for managing petrol pump oper
 ## 🏗️ System Architecture
 
 ```
-React Frontend
-      │
-      ▼
-Express Backend
-      │
-      ▼
-Controllers
-      │
-      ▼
-Business Services
-      │
-      ▼
-MongoDB Database
-      │
-      ▼
-Gemini AI
+React Frontend (Octane UI)
+       │
+       ▼ (JWT HTTP-Only Cookie)
+Express Backend (Tenant Scoped: req.user.petrolPumpId)
+       │
+       ▼
+Controllers & Tenant Validation
+       │
+       ▼
+Business Services (Scoped to petrolPumpId)
+       │
+       ▼
+MongoDB Database (Multi-Tenant Collections & Compound Indexes)
+       │
+       ▼
+Gemini AI (Filtered Context Payload)
 ```
 
-The AI never accesses the database directly. All database queries and aggregations are securely performed through the application's service layer.
+The AI never accesses the database directly or cross-tenant data. All queries and aggregations are scoped to the authenticated user's `petrolPumpId`.
 
 ---
 

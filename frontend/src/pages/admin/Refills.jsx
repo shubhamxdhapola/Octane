@@ -28,7 +28,7 @@ const toLocalISOString = (dateOrStr) => {
 export default function Refills() {
   const dispatch = useDispatch();
   const { allTanks, error: tankError, fetchingTanks } = useSelector((state) => state.tank);
-  const { allRefills, error: refillError, fetchingRefills } = useSelector((state) => state.refill);
+  const { allRefills, refillsByTank, error: refillError, fetchingRefills } = useSelector((state) => state.refill);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [open, setOpen] = useState(false);
@@ -45,8 +45,8 @@ export default function Refills() {
   const itemsPerPage = 10;
 
   const tanks = allTanks || [];
-  const refills = allRefills || [];
-  const loading = fetchingTanks || (selectedTankId && fetchingRefills);
+  const refills = (refillsByTank && refillsByTank[selectedTankId]) || allRefills || [];
+  const loading = (fetchingTanks && allTanks === null) || (selectedTankId && fetchingRefills && !refillsByTank?.[selectedTankId]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -74,8 +74,10 @@ export default function Refills() {
   );
 
   useEffect(() => {
-    dispatch(getAllTanks());
-  }, [dispatch]);
+    if (allTanks === null) {
+      dispatch(getAllTanks());
+    }
+  }, [dispatch, allTanks]);
 
   useEffect(() => {
     if (!selectedTankId && tanks.length > 0) {
@@ -86,8 +88,10 @@ export default function Refills() {
   useEffect(() => {
     if (!selectedTankId) return;
     setSearchParams({ tankId: selectedTankId });
-    dispatch(getRefills(selectedTankId));
-  }, [selectedTankId, setSearchParams, dispatch]);
+    if (!refillsByTank || !refillsByTank[selectedTankId]) {
+      dispatch(getRefills(selectedTankId));
+    }
+  }, [selectedTankId, setSearchParams, dispatch, refillsByTank]);
 
   const openCreate = () => {
     setEditing(null);

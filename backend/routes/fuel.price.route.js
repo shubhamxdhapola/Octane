@@ -20,4 +20,4 @@ router.get('/history',
     getPriceHistory
 )
 
-export default router
+export default router

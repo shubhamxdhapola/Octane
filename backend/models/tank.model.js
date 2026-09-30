@@ -11,9 +11,13 @@ const tankSchema = new mongoose.Schema({
     tankNumber: {
         type: String,
         required: true,
-        unique: true,
         trim: true,
         minlength: [1, 'Tank number must be at least 1 characters']
+    },
+    petrolPumpId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "PetrolPump",
+        required: true,
     },
     fuelType: {
         type: String,
@@ -37,6 +41,9 @@ const tankSchema = new mongoose.Schema({
         default: true
     }
 }, { timestamps: true })
+
+tankSchema.index({ petrolPumpId: 1, tankNumber: 1 }, { unique: true });
+tankSchema.index({ petrolPumpId: 1, isActive: 1 });
 
 const Tank = mongoose.model('Tank', tankSchema)
 export default Tank;

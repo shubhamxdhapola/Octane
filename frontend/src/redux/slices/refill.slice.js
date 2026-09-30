@@ -8,9 +8,18 @@ export const getRefills = createAsyncThunk(
     async (tankId, { rejectWithValue }) => {
         try {
             const response = await axiosInstance.get(API_PATHS.TANK.REFILLS(tankId));
-            return response.data;
+            return { tankId, data: response.data };
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || error.response?.data || "Unable to fetch refills");
+        }
+    },
+    {
+        condition: (tankId, { getState }) => {
+            const { refill } = getState();
+            if (refill.refillsByTank && refill.refillsByTank[tankId]) {
+                return false;
+            }
+            return true;
         }
     }
 );
@@ -55,12 +64,18 @@ const refillSlice = createSlice({
     name: 'refill',
     initialState: {
         allRefills: null,
-        fetchingRefills: true,
+        refillsByTank: {},
+        fetchingRefills: false,
         savingRefill: false,
         deletingRefill: false,
         error: null,
     },
-    reducers: {},
+    reducers: {
+        invalidateRefills: (state) => {
+            state.allRefills = null;
+            state.refillsByTank = {};
+        }
+    },
     extraReducers: (builder) => {
         builder
             .addCase(getRefills.pending, (state) => {
@@ -69,7 +84,9 @@ const refillSlice = createSlice({
             })
             .addCase(getRefills.fulfilled, (state, action) => {
                 state.fetchingRefills = false;
-                state.allRefills = action.payload.refills || action.payload;
+                const list = action.payload.data.refills || action.payload.data;
+                state.refillsByTank[action.payload.tankId] = list;
+                state.allRefills = list;
             })
             .addCase(getRefills.rejected, (state, action) => {
                 state.fetchingRefills = false;
@@ -83,6 +100,10 @@ const refillSlice = createSlice({
                 state.savingRefill = false;
                 const newRefill = action.payload.refill || action.payload;
                 state.allRefills = state.allRefills ? [newRefill, ...state.allRefills] : [newRefill];
+                const tankId = action.meta.arg?.tankId;
+                if (tankId && state.refillsByTank[tankId]) {
+                    state.refillsByTank[tankId] = [newRefill, ...state.refillsByTank[tankId]];
+                }
             })
             .addCase(addRefill.rejected, (state, action) => {
                 state.savingRefill = false;
@@ -92,8 +113,12 @@ const refillSlice = createSlice({
             })
             .addCase(deleteRefill.fulfilled, (state, action) => {
                 state.deletingRefill = false;
+                const { tankId, refillId } = action.meta.arg;
                 if (state.allRefills) {
-                    state.allRefills = state.allRefills.filter((refill) => refill._id !== action.payload.id);
+                    state.allRefills = state.allRefills.filter((refill) => refill._id !== refillId);
+                }
+                if (tankId && state.refillsByTank[tankId]) {
+                    state.refillsByTank[tankId] = state.refillsByTank[tankId].filter((refill) => refill._id !== refillId);
                 }
             })
             .addCase(deleteRefill.rejected, (state, action) => {
@@ -105,10 +130,17 @@ const refillSlice = createSlice({
             .addCase(updateRefill.fulfilled, (state, action) => {
                 state.savingRefill = false;
                 const updatedRefill = action.payload.refill || action.payload;
+                const tankId = action.meta.arg?.tankId;
                 if (state.allRefills) {
                     const index = state.allRefills.findIndex((refill) => refill._id === updatedRefill._id);
                     if (index !== -1) {
                         state.allRefills[index] = updatedRefill;
+                    }
+                }
+                if (tankId && state.refillsByTank[tankId]) {
+                    const index = state.refillsByTank[tankId].findIndex((refill) => refill._id === updatedRefill._id);
+                    if (index !== -1) {
+                        state.refillsByTank[tankId][index] = updatedRefill;
                     }
                 }
             })
@@ -117,8 +149,11 @@ const refillSlice = createSlice({
             })
             .addCase(logoutUser.fulfilled, (state) => {
                 state.allRefills = null;
+                state.refillsByTank = {};
+                state.fetchingRefills = false;
             });
     }
 });
 
+export const { invalidateRefills } = refillSlice.actions;
 export default refillSlice.reducer;

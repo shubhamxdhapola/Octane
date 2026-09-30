@@ -9,9 +9,19 @@ export const getFuelPriceHistory = createAsyncThunk(
         try {
             const url = fuelType ? `${API_PATHS.FUEL_PRICE.HISTORY}?fuelType=${fuelType}` : API_PATHS.FUEL_PRICE.HISTORY;
             const response = await axiosInstance.get(url);
-            return response.data;
+            return { fuelType: fuelType || "all", data: response.data };
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || error.response?.data || "Unable to fetch fuel price history");
+        }
+    },
+    {
+        condition: (fuelType = "", { getState }) => {
+            const key = fuelType || "all";
+            const { fuelPrice } = getState();
+            if (fuelPrice.historyByFuelType && fuelPrice.historyByFuelType[key]) {
+                return false;
+            }
+            return true;
         }
     }
 );
@@ -24,6 +34,16 @@ export const getCurrentFuelPrices = createAsyncThunk(
             return response.data;
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || error.response?.data || "Unable to fetch current fuel prices");
+        }
+    },
+    {
+        condition: (force, { getState }) => {
+            if (force) return true;
+            const { fuelPrice } = getState();
+            if (fuelPrice.current !== null) {
+                return false;
+            }
+            return true;
         }
     }
 );
@@ -45,12 +65,19 @@ const fuelPriceSlice = createSlice({
     initialState: {
         history: null,
         current: null,
-        fetchingHistory: true,
-        fetchingCurrent: true,
+        historyByFuelType: {},
+        fetchingHistory: false,
+        fetchingCurrent: false,
         savingPrice: false,
         error: null,
     },
-    reducers: {},
+    reducers: {
+        invalidateFuelPrices: (state) => {
+            state.history = null;
+            state.current = null;
+            state.historyByFuelType = {};
+        }
+    },
     extraReducers: (builder) => {
         builder
             .addCase(getFuelPriceHistory.pending, (state) => {
@@ -59,7 +86,9 @@ const fuelPriceSlice = createSlice({
             })
             .addCase(getFuelPriceHistory.fulfilled, (state, action) => {
                 state.fetchingHistory = false;
-                state.history = action.payload.priceHistory || action.payload;
+                const records = action.payload.data.priceHistory || action.payload.data;
+                state.historyByFuelType[action.payload.fuelType] = records;
+                state.history = records;
             })
             .addCase(getFuelPriceHistory.rejected, (state, action) => {
                 state.fetchingHistory = false;
@@ -85,7 +114,7 @@ const fuelPriceSlice = createSlice({
                 state.savingPrice = false;
                 const newPrice = action.payload.fuelPrice || action.payload.price || action.payload;
                 state.history = state.history ? [newPrice, ...state.history] : [newPrice];
-                // Also optimistically update current if applicable
+                state.historyByFuelType = {}; // Invalidate history cache so filtered queries reflect addition
                 if (state.current) {
                     state.current[newPrice.fuelType] = newPrice;
                 }
@@ -96,8 +125,12 @@ const fuelPriceSlice = createSlice({
             .addCase(logoutUser.fulfilled, (state) => {
                 state.history = null;
                 state.current = null;
+                state.historyByFuelType = {};
+                state.fetchingHistory = false;
+                state.fetchingCurrent = false;
             });
     }
 });
 
+export const { invalidateFuelPrices } = fuelPriceSlice.actions;
 export default fuelPriceSlice.reducer;

@@ -68,6 +68,7 @@ export default function FuelPrices() {
   const {
     current,
     history,
+    historyByFuelType,
     fetchingHistory,
     fetchingCurrent,
     error: reduxError,
@@ -95,12 +96,17 @@ export default function FuelPrices() {
     (typeof reduxError === "string" ? reduxError : reduxError?.message);
 
   useEffect(() => {
-    dispatch(getCurrentFuelPrices());
-  }, [dispatch]);
+    if (current === null) {
+      dispatch(getCurrentFuelPrices());
+    }
+  }, [dispatch, current]);
 
   useEffect(() => {
-    dispatch(getFuelPriceHistory(fuelFilter));
-  }, [dispatch, fuelFilter]);
+    const filterKey = fuelFilter || "all";
+    if (!historyByFuelType || !historyByFuelType[filterKey]) {
+      dispatch(getFuelPriceHistory(fuelFilter));
+    }
+  }, [dispatch, fuelFilter, historyByFuelType]);
 
   const chartData = useMemo(() => {
     if (!history) return [];

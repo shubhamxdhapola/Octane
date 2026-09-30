@@ -31,12 +31,20 @@ const nozzleSchema = new mongoose.Schema({
         type: Boolean,
         default: true,
     },
+    petrolPumpId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "PetrolPump",
+        required: true,
+    },
 }, { timestamps: true, });
 
 nozzleSchema.index({
+    petrolPumpId: 1,
     machineId: 1,
     nozzleNumber: 1,
 }, { unique: true, });
+
+nozzleSchema.index({ petrolPumpId: 1, isActive: 1 });
 
 const Nozzle = mongoose.model("Nozzle", nozzleSchema);
 

@@ -1,27 +1,24 @@
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { FiEye, FiEyeOff, FiLock, FiPhone } from "react-icons/fi";
 import { clearAuthError, loginUser } from "../redux/slices/auth.slice";
-import { showErrorToast } from "../utils/helper";
+import { showErrorToast, showSuccessToast } from "../utils/helper";
 import Logo from "../components/Logo";
 
 export default function Login() {
   const [form, setForm] = useState({ phone: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const dispatch = useDispatch();
-  const { loading, error } = useSelector((state) => state.auth);
+  const { loading } = useSelector((state) => state.auth);
   const navigate = useNavigate();
 
   useEffect(() => {
     dispatch(clearAuthError());
+    return () => {
+      dispatch(clearAuthError());
+    };
   }, [dispatch]);
-
-  useEffect(() => {
-    if (error) {
-      showErrorToast(error);
-    }
-  }, [error]);
 
   const updateField = (field, value) => {
     dispatch(clearAuthError());
@@ -46,11 +43,12 @@ export default function Login() {
 
     try {
       const user = await dispatch(loginUser({ phone: phoneTrim, password: pass })).unwrap();
+      showSuccessToast("Connected to Octane");
       navigate(
         user.role === "admin" ? "/admin/dashboard" : "/employee/my-shifts",
       );
-    } catch {
-      // Error is stored in Redux and displayed below.
+    } catch (err) {
+      showErrorToast(err || "Invalid credentials");
     }
   };
 
@@ -65,7 +63,7 @@ export default function Login() {
 
         {/* Middle Section: Form Container */}
         <div className="mx-auto my-auto w-full max-w-[400px] py-12 px-2">
-          <h1 className="text-3xl font-extrabold tracking-tight text-ink sm:text-4xl">
+          <h1 className="text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">
             Welcome Back
           </h1>
           <p className="mt-2.5 text-sm text-muted">
@@ -121,16 +119,26 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-brand py-3.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 transition hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full rounded-xl bg-brand py-3 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-blue-600 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading ? "Logging in..." : "Log In"}
             </button>
+
+            {/* Register Pump Link */}
+
           </form>
+
+          <div className="text-center text-sm text-muted mt-6">
+            Petrol Pump Owner?{" "}
+            <Link to="/register" className="font-semibold text-brand hover:underline">
+              Register Your Pump
+            </Link>
+          </div>
         </div>
 
         {/* Bottom Section */}
         <div className="text-center text-xs text-slate-400 w-full mt-6">
-          <p>© {new Date().getFullYear()} Sai Petrol Pump. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Octane — Smart Fuel Station Management.</p>
         </div>
       </div>
 

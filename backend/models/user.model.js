@@ -36,8 +36,15 @@ const userSchema = new mongoose.Schema({
         type: Number,
         default: 0,
         select: false,
+    },
+    petrolPumpId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'PetrolPump',
+        required: true,
     }
 }, { timestamps: true })
+
+userSchema.index({ petrolPumpId: 1, role: 1 });
 
 userSchema.pre('save', async function (next) {
     if (!this.isModified('password')) return

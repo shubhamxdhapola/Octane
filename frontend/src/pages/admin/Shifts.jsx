@@ -22,7 +22,7 @@ export default function Shifts() {
   const { allShifts, error: shiftError, fetchingShifts } = useSelector((state) => state.shift);
   const { allMachines } = useSelector((state) => state.machine);
   const { allEmployees } = useSelector((state) => state.employee);
-  const loading = fetchingShifts;
+  const loading = fetchingShifts && allShifts === null;
 
   const [filters, setFilters] = useState({
     status: "",
@@ -41,10 +41,16 @@ export default function Shifts() {
   }, [filters]);
 
   useEffect(() => {
-    dispatch(getAllShifts());
-    dispatch(getAllMachines());
-    dispatch(getAllEmployees());
-  }, [dispatch]);
+    if (allShifts === null) {
+      dispatch(getAllShifts());
+    }
+    if (allMachines === null) {
+      dispatch(getAllMachines());
+    }
+    if (allEmployees === null) {
+      dispatch(getAllEmployees());
+    }
+  }, [dispatch, allShifts, allMachines, allEmployees]);
 
   const shifts = useMemo(() => {
     if (!allShifts) return [];

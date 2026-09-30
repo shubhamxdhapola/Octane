@@ -38,7 +38,7 @@ export default function Employees() {
     error: reduxError,
   } = useSelector((state) => state.employee);
   const items = allEmployees || [];
-  const loading = fetchingEmployees;
+  const loading = fetchingEmployees && allEmployees === null;
 
   const [ongoingShifts, setOngoingShifts] = useState([]);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -61,8 +61,10 @@ export default function Employees() {
     (typeof reduxError === "string" ? reduxError : reduxError?.message);
 
   useEffect(() => {
-    dispatch(getAllEmployees());
-  }, [dispatch]);
+    if (allEmployees === null) {
+      dispatch(getAllEmployees());
+    }
+  }, [dispatch, allEmployees]);
 
   useEffect(() => {
     shiftApi

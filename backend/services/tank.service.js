@@ -1,9 +1,10 @@
 import Tank from "../models/tank.model.js";
 
-export const getLowFuelTanks = async () => {
-    const tanks = await Tank.find({
-        isActive: true,
-    });
+export const getLowFuelTanks = async (petrolPumpId) => {
+    const filter = { isActive: true };
+    if (petrolPumpId) filter.petrolPumpId = petrolPumpId;
+
+    const tanks = await Tank.find(filter);
 
     return tanks
         .map((tank) => ({
@@ -22,9 +23,12 @@ export const getLowFuelTanks = async () => {
         .filter((tank) => tank.percentage <= 20);
 };
 
-export const getTankByFuelType = async (fuelType) => {
-    return await Tank.findOne({
+export const getTankByFuelType = async (fuelType, petrolPumpId) => {
+    const filter = {
         fuelType: fuelType.toUpperCase(),
         isActive: true,
-    }).select("name fuelType capacity currentQuantity");
+    };
+    if (petrolPumpId) filter.petrolPumpId = petrolPumpId;
+
+    return await Tank.findOne(filter).select("name fuelType capacity currentQuantity");
 };

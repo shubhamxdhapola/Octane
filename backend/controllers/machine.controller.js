@@ -6,7 +6,8 @@ import getDateRange from "../utils/getDateRange.js";
 
 export const getMachines = async (req, res) => {
     try {
-        const machines = await Machine.find().sort({ createdAt: -1 });
+        const petrolPumpId = req.user.petrolPumpId;
+        const machines = await Machine.find({ petrolPumpId }).sort({ createdAt: -1 });
         return res.status(200).json(machines);
     } catch (error) {
         console.log("Error in getMachines controller : ", error)
@@ -17,12 +18,13 @@ export const getMachines = async (req, res) => {
 export const getMachine = async (req, res) => {
     try {
         const machineId = req.params.id;
+        const petrolPumpId = req.user.petrolPumpId;
 
         if (!mongoose.Types.ObjectId.isValid(machineId)) {
             return res.status(400).json({ message: "Invalid machine id", });
         }
 
-        const machine = await Machine.findById(machineId);
+        const machine = await Machine.findOne({ _id: machineId, petrolPumpId });
 
         if (!machine) {
             return res.status(404).json({ message: "Machine not found", });
@@ -37,14 +39,19 @@ export const getMachine = async (req, res) => {
 export const createMachine = async (req, res) => {
     try {
         const { name, machineNumber } = req.body;
+        const petrolPumpId = req.user.petrolPumpId;
 
-        const existingMachine = await Machine.findOne({ machineNumber });
+        const existingMachine = await Machine.findOne({ machineNumber, petrolPumpId });
 
         if (existingMachine) {
-            return res.status(409).json({ message: "Machine number already exists" });
+            return res.status(409).json({ message: "Machine number already exists in your petrol pump" });
         }
 
-        const newMachine = await Machine.create({ name, machineNumber });
+        const newMachine = await Machine.create({
+            name,
+            machineNumber,
+            petrolPumpId,
+        });
 
         return res.status(201).json({
             machine: newMachine,
@@ -59,21 +66,23 @@ export const createMachine = async (req, res) => {
 export const updateMachine = async (req, res) => {
     try {
         const { name, machineNumber, isActive } = req.body;
-
         const machineId = req.params.id;
+        const petrolPumpId = req.user.petrolPumpId;
 
         if (!mongoose.Types.ObjectId.isValid(machineId)) {
             return res.status(400).json({ message: "Invalid machine id" });
         }
 
-        const machine = await Machine.findById(machineId);
+        const machine = await Machine.findOne({ _id: machineId, petrolPumpId });
 
         if (!machine) {
             return res.status(404).json({ message: "Machine not found", });
         }
 
         const occupiedNozzle = await Nozzle.findOne({
-            machineId, isOccupied: true
+            machineId,
+            petrolPumpId,
+            isOccupied: true
         })
 
         if (occupiedNozzle) {
@@ -86,11 +95,13 @@ export const updateMachine = async (req, res) => {
 
         if (machineNumber) {
             const existingMachine = await Machine.findOne({
-                machineNumber, _id: { $ne: machineId },
+                machineNumber,
+                petrolPumpId,
+                _id: { $ne: machineId },
             });
 
             if (existingMachine) {
-                return res.status(409).json({ message: "Machine number already exists", });
+                return res.status(409).json({ message: "Machine number already exists in your petrol pump", });
             }
             updates.machineNumber = machineNumber;
         }
@@ -101,8 +112,9 @@ export const updateMachine = async (req, res) => {
             updates.isActive = isActive;
         }
 
-        const updatedMachine = await Machine.findByIdAndUpdate(
-            machineId, updates,
+        const updatedMachine = await Machine.findOneAndUpdate(
+            { _id: machineId, petrolPumpId },
+            updates,
             { runValidators: true, returnDocument: "after", }
         );
 
@@ -119,19 +131,22 @@ export const updateMachine = async (req, res) => {
 export const deleteMachine = async (req, res) => {
     try {
         const machineId = req.params.id;
+        const petrolPumpId = req.user.petrolPumpId;
 
         if (!mongoose.Types.ObjectId.isValid(machineId)) {
             return res.status(400).json({ message: "Invalid machine id" });
         }
 
-        const machine = await Machine.findById(machineId);
+        const machine = await Machine.findOne({ _id: machineId, petrolPumpId });
 
         if (!machine) {
             return res.status(404).json({ message: "Machine not found" });
         }
 
         const occupiedNozzle = await Nozzle.findOne({
-            machineId, isOccupied: true,
+            machineId,
+            petrolPumpId,
+            isOccupied: true,
         });
 
         if (occupiedNozzle) {
@@ -140,7 +155,7 @@ export const deleteMachine = async (req, res) => {
             });
         }
 
-        const nozzleCount = await Nozzle.countDocuments({ machineId });
+        const nozzleCount = await Nozzle.countDocuments({ machineId, petrolPumpId });
 
         if (nozzleCount > 0) {
             return res.status(409).json({
@@ -148,7 +163,7 @@ export const deleteMachine = async (req, res) => {
             });
         }
 
-        await Machine.findByIdAndDelete(machineId)
+        await Machine.findOneAndDelete({ _id: machineId, petrolPumpId });
         return res.status(200).json({ message: "Machine deleted successfully" });
 
     } catch (error) {
@@ -159,7 +174,8 @@ export const deleteMachine = async (req, res) => {
 
 export const getMachineSalesSummary = async (req, res) => {
     try {
-        const machines = await Machine.find().sort({ name: 1 });
+        const petrolPumpId = req.user.petrolPumpId;
+        const machines = await Machine.find({ petrolPumpId }).sort({ name: 1 });
         
         const ranges = {
             today: getDateRange("today"),
@@ -169,10 +185,10 @@ export const getMachineSalesSummary = async (req, res) => {
         };
 
         const [todaySales, sevenSales, fifteenSales, thirtySales] = await Promise.all([
-            getSalesForPeriod(ranges.today.startDate, ranges.today.endDate),
-            getSalesForPeriod(ranges.seven.startDate, ranges.seven.endDate),
-            getSalesForPeriod(ranges.fifteen.startDate, ranges.fifteen.endDate),
-            getSalesForPeriod(ranges.thirty.startDate, ranges.thirty.endDate)
+            getSalesForPeriod(petrolPumpId, ranges.today.startDate, ranges.today.endDate),
+            getSalesForPeriod(petrolPumpId, ranges.seven.startDate, ranges.seven.endDate),
+            getSalesForPeriod(petrolPumpId, ranges.fifteen.startDate, ranges.fifteen.endDate),
+            getSalesForPeriod(petrolPumpId, ranges.thirty.startDate, ranges.thirty.endDate)
         ]);
 
         const mapSales = (salesList) => {
@@ -209,13 +225,18 @@ export const getMachineSalesSummary = async (req, res) => {
     }
 };
 
-const getSalesForPeriod = async (startDate, endDate) => {
+const getSalesForPeriod = async (petrolPumpId, startDate, endDate) => {
+    const match = {
+        status: "COMPLETED",
+        endTime: { $gte: startDate, $lte: endDate }
+    };
+    if (petrolPumpId) {
+        match.petrolPumpId = new mongoose.Types.ObjectId(petrolPumpId);
+    }
+
     return await Shift.aggregate([
         {
-            $match: {
-                status: "COMPLETED",
-                endTime: { $gte: startDate, $lte: endDate }
-            }
+            $match: match
         },
         {
             $group: {

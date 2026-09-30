@@ -1,6 +1,11 @@
 import mongoose from "mongoose";
 
 const fuelPriceSchema = new mongoose.Schema({
+    petrolPumpId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "PetrolPump",
+        required: true,
+    },
     fuelType: {
         type: String,
         enum: ['PETROL', 'DIESEL', 'PREMIUM'],
@@ -18,6 +23,8 @@ const fuelPriceSchema = new mongoose.Schema({
         default: Date.now
     }
 }, { timestamps: true })
+
+fuelPriceSchema.index({ petrolPumpId: 1, fuelType: 1, effectiveFrom: -1 });
 
 const FuelPrice = mongoose.model('FuelPrice', fuelPriceSchema)
 export default FuelPrice

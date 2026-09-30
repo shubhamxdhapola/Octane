@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useNavigate, useLocation, ScrollRestoration } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -38,7 +38,7 @@ const adminNav = [
   { to: "/admin/employees", label: "Employees", icon: FiUsers },
   { to: "/admin/refills", label: "Tank Refills", icon: TbTruckDelivery },
   { to: "/admin/reports", label: "Reports", icon: TbReportAnalytics },
-  { to: "/admin/chat", label: "AI Assistant", icon: FiCpu },
+  { to: "/admin/chat", label: "OctaneIQ", icon: FiCpu },
   { to: "/admin/settings", label: "Settings", icon: FiSettings },
 ];
 
@@ -61,10 +61,40 @@ export default function AppLayout({ role = "admin" }) {
   const [desktopSidebarExpanded, setDesktopSidebarExpanded] = useState(false);
   const mobileSidebarRef = useRef(null);
   const menuBtnRef = useRef(null);
+  const desktopNavRef = useRef(null);
+  const sidebarScrollPos = useRef(0);
 
-  // Automatically close mobile sidebar when the route changes
+  // Automatically close mobile sidebar and reset page content scroll on route change,
+  // while strictly preserving the desktop sidebar's scroll position.
   useEffect(() => {
     setSidebarOpen(false);
+    window.scrollTo({ left: 0, top: 0, behavior: "instant" });
+    document.documentElement.scrollLeft = 0;
+    document.documentElement.scrollTop = 0;
+    document.body.scrollLeft = 0;
+    document.body.scrollTop = 0;
+
+    // Reset horizontal and vertical scroll on main page content and data tables only (e.g. Tanks, Machines)
+    const mainContent = document.querySelector("main");
+    if (mainContent) {
+      mainContent.scrollLeft = 0;
+      mainContent.scrollTop = 0;
+    }
+
+    const pageScrollables = document.querySelectorAll(
+      "main .overflow-x-auto, main .table-wrap, main .overflow-y-auto"
+    );
+    pageScrollables.forEach((el) => {
+      if (!el.closest("aside")) {
+        el.scrollLeft = 0;
+        el.scrollTop = 0;
+      }
+    });
+
+    // Restore desktop sidebar scroll position so it never jumps back to top
+    if (desktopNavRef.current && sidebarScrollPos.current > 0) {
+      desktopNavRef.current.scrollTop = sidebarScrollPos.current;
+    }
   }, [location.pathname]);
 
   // Click outside handler to close mobile menu
@@ -102,20 +132,34 @@ export default function AppLayout({ role = "admin" }) {
   const renderSidebarContent = (isExpanded, isMobile = false) => (
     <>
       <div
-        className={`flex h-[92px] items-center border-b border-slate-200 ${isExpanded ? "justify-between px-8" : "justify-center px-4"}`}
+        className={`flex h-20 items-center border-b border-slate-200 overflow-hidden ${isExpanded ? "justify-between px-8" : "justify-center px-4"}`}
       >
-        {isExpanded && <Logo isLogo={false} />}
+        {isExpanded && (
+          <div className="min-w-0 overflow-hidden">
+            <Logo isLogo={false} customSubtitle="Management Portal" />
+          </div>
+        )}
         {!isMobile && (
           <button
             onClick={() => setDesktopSidebarExpanded(!desktopSidebarExpanded)}
-            className="rounded-md p-2 text-2xl text-ink hover:bg-slate-100"
+            className="rounded-md p-2 text-2xl text-ink hover:bg-slate-100 shrink-0"
             aria-label="Toggle sidebar"
           >
             {desktopSidebarExpanded ? <FiChevronLeft /> : <FiChevronRight />}
           </button>
         )}
       </div>
-      <nav className="flex-1 space-y-2 overflow-y-auto px-2 py-8 overflow-x-hidden">
+      <nav
+        ref={!isMobile ? desktopNavRef : undefined}
+        onScroll={
+          !isMobile
+            ? (e) => {
+                sidebarScrollPos.current = e.currentTarget.scrollTop;
+              }
+            : undefined
+        }
+        className="flex-1 space-y-2 overflow-y-auto px-2 py-8 overflow-x-hidden"
+      >
         {nav.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
@@ -152,7 +196,8 @@ export default function AppLayout({ role = "admin" }) {
   );
 
   return (
-    <div className="min-h-screen bg-[#f8fbff] lg:flex">
+    <div className="min-h-screen bg-[#f8fbff] lg:flex w-full max-w-full overflow-x-hidden">
+      <ScrollRestoration />
       {/* Desktop sidebar */}
       <aside
         className={`fixed inset-y-0 left-0 z-30 hidden border-r border-slate-200 bg-white transition-all duration-300 lg:flex lg:flex-col ${desktopSidebarExpanded ? "w-[290px]" : "w-[90px]"}`}
@@ -184,27 +229,27 @@ export default function AppLayout({ role = "admin" }) {
       </div>
 
       <div
-        className={`min-w-0 flex-1 transition-all duration-300 ${desktopSidebarExpanded ? "lg:pl-[290px]" : "lg:pl-[90px]"}`}
+        className={`min-w-0 w-full max-w-full flex-1 overflow-x-hidden transition-all duration-300 ${desktopSidebarExpanded ? "lg:pl-[290px]" : "lg:pl-[90px]"}`}
       >
-        <header className="sticky top-0 z-20 flex h-16 lg:h-[92px] items-center justify-between border-b border-slate-200 bg-white/95 px-5 backdrop-blur lg:px-10">
-          <button
-            ref={menuBtnRef}
-            onClick={() => setSidebarOpen(true)}
-            className="text-2xl text-ink lg:text-3xl lg:hidden"
-            aria-label="Open sidebar"
-          >
-            <FiMenu />
-          </button>
-          <div className="hidden lg:block" />
+        <header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b border-slate-200 bg-white/95 px-5 backdrop-blur lg:px-8">
+          <div className="flex items-center gap-3">
+            <button
+              ref={menuBtnRef}
+              onClick={() => setSidebarOpen(true)}
+              className="text-2xl text-ink lg:text-3xl lg:hidden"
+              aria-label="Open sidebar"
+            >
+              <FiMenu />
+            </button>
+          </div>
           <div className="flex min-w-0 items-center gap-4">
-
             <button
               onClick={handleLogout}
-              className="btn-secondary flex items-center gap-1.5 text-red-500 hover:bg-red-50 hover:text-red-600 transition px-2.5 py-1.5 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-semibold"
+              className="group flex items-center gap-2 rounded-lg border border-slate-300/80 bg-white px-3.5 py-1.5 text-sm font-medium text-slate-700 shadow-xs transition duration-200 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
               title="Logout"
             >
-              <FiLogOut className="text-sm sm:text-lg" />
-              <span className="hidden sm:inline">Logout</span>
+              <FiLogOut className="text-sm text-slate-700 group-hover:text-red-500 transition-colors" />
+              <span>Logout</span>
             </button>
           </div>
         </header>
@@ -216,6 +261,7 @@ export default function AppLayout({ role = "admin" }) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
+              className="w-full h-full"
             >
               <Outlet />
             </motion.div>

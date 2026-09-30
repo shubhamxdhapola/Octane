@@ -5,7 +5,7 @@ import { getTopMachine } from "./machine.service.js";
 import { getCurrentFuelPrices } from "./fuel.price.service.js";
 import { getRecentTankRefills, getTotalRefilled, } from "./tank.refill.service.js";
 
-export const generateDailyReport = async (period = "today", startDate, endDate) => {
+export const generateDailyReport = async (petrolPumpId, period = "today", startDate, endDate) => {
 
     const { startDate: sDate, endDate: eDate } = getDateRange(period, startDate, endDate);
 
@@ -20,14 +20,14 @@ export const generateDailyReport = async (period = "today", startDate, endDate) 
         totalRefilled
     ] = await Promise.all([
 
-        getOverviewCards(sDate, eDate),
-        getFuelSoldSummary(sDate, eDate),
-        getTankStatus(),
-        getTopEmployee(period, startDate, endDate),
-        getTopMachine(period, startDate, endDate),
-        getCurrentFuelPrices(),
-        getRecentTankRefills(period, startDate, endDate),
-        getTotalRefilled(period, startDate, endDate)
+        getOverviewCards(petrolPumpId, sDate, eDate),
+        getFuelSoldSummary(petrolPumpId, sDate, eDate),
+        getTankStatus(petrolPumpId),
+        getTopEmployee(petrolPumpId, period, startDate, endDate),
+        getTopMachine(petrolPumpId, period, startDate, endDate),
+        getCurrentFuelPrices(petrolPumpId),
+        getRecentTankRefills(petrolPumpId, period, startDate, endDate),
+        getTotalRefilled(petrolPumpId, period, startDate, endDate)
 
     ]);
 
@@ -46,4 +46,4 @@ export const generateDailyReport = async (period = "today", startDate, endDate) 
         topMachine
     };
 
-};
+};

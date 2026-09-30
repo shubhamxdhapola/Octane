@@ -12,6 +12,16 @@ export const getAllShifts = createAsyncThunk(
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || error.response?.data || "Unable to fetch shifts");
         }
+    },
+    {
+        condition: (force, { getState }) => {
+            if (force) return true;
+            const { shift } = getState();
+            if (shift.allShifts !== null) {
+                return false;
+            }
+            return true;
+        }
     }
 );
 
@@ -43,7 +53,7 @@ const shiftSlice = createSlice({
     name: 'shift',
     initialState: {
         allShifts: null,
-        fetchingShifts: true,
+        fetchingShifts: false,
         savingShift: false,
         error: null,
     },

@@ -1,18 +1,24 @@
+import mongoose from "mongoose";
 import Shift from "../models/shift.model.js";
 import getDateRange from "../utils/getDateRange.js";
 
-export const getTopMachine = async (period = "today", startDate, endDate) => {
+export const getTopMachine = async (petrolPumpId, period = "today", startDate, endDate) => {
     const { startDate: sDate, endDate: eDate } = getDateRange(period, startDate, endDate);
+
+    const match = {
+        status: "COMPLETED",
+        endTime: {
+            $gte: sDate,
+            $lte: eDate,
+        },
+    };
+    if (petrolPumpId) {
+        match.petrolPumpId = new mongoose.Types.ObjectId(petrolPumpId);
+    }
 
     const result = await Shift.aggregate([
         {
-            $match: {
-                status: "COMPLETED",
-                endTime: {
-                    $gte: sDate,
-                    $lte: eDate,
-                },
-            },
+            $match: match,
         },
         {
             $group: {
@@ -61,22 +67,28 @@ export const getTopMachine = async (period = "today", startDate, endDate) => {
 
 export const getMachinePerformance = async (
     machineId,
+    petrolPumpId,
     period = "today",
     startDate,
     endDate
 ) => {
     const { startDate: sDate, endDate: eDate } = getDateRange(period, startDate, endDate);
 
+    const match = {
+        machineId: new mongoose.Types.ObjectId(machineId),
+        status: "COMPLETED",
+        endTime: {
+            $gte: sDate,
+            $lte: eDate,
+        },
+    };
+    if (petrolPumpId) {
+        match.petrolPumpId = new mongoose.Types.ObjectId(petrolPumpId);
+    }
+
     const result = await Shift.aggregate([
         {
-            $match: {
-                machineId,
-                status: "COMPLETED",
-                endTime: {
-                    $gte: sDate,
-                    $lte: eDate,
-                },
-            },
+            $match: match,
         },
         {
             $group: {

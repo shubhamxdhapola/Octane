@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import { FiCalendar, FiClock, FiChevronDown } from "react-icons/fi";
 import { MdCurrencyRupee, MdOutlineLocalGasStation } from "react-icons/md";
 import {
@@ -24,6 +25,7 @@ import ProgressBar from "../../components/ProgressBar";
 import { apiErrorMessage, dashboardApi } from "../../utils/api";
 import { dateTime, number, rupee } from "../../utils/formatters";
 import { motion } from "framer-motion";
+import { getDashboardData, setCurrentPeriod } from "../../redux/slices/dashboard.slice";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -110,32 +112,25 @@ const periods = [
 ];
 
 export default function Dashboard() {
-  const [period, setPeriod] = useState("today");
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useDispatch();
+  const { dataByPeriod, currentPeriod, loading: reduxLoading, error: reduxError } = useSelector(
+    (state) => state.dashboard
+  );
+  const period = currentPeriod || "today";
+  const data = dataByPeriod ? dataByPeriod[period] : null;
+  const loading = reduxLoading && !data;
+  const error = reduxError || "";
   const [tankPage, setTankPage] = useState(1);
   const itemsPerPage = 10;
-  const [error, setError] = useState("");
 
   useEffect(() => {
-    let active = true;
-    setLoading(true);
-    dashboardApi
-      .get(period)
-      .then((payload) => {
-        if (!active) return;
-        setData(payload);
-        setError("");
-      })
-      .catch(
-        (err) =>
-          active && setError(apiErrorMessage(err, "Unable to load dashboard")),
-      )
-      .finally(() => active && setLoading(false));
-    return () => {
-      active = false;
-    };
-  }, [period]);
+    dispatch(getDashboardData(period));
+  }, [dispatch, period]);
+
+  const handlePeriodChange = (newPeriod) => {
+    dispatch(setCurrentPeriod(newPeriod));
+    dispatch(getDashboardData(newPeriod));
+  };
 
   const overview = data?.overview || {};
   const summary = data?.fuelSoldSummary || {
@@ -175,7 +170,7 @@ export default function Dashboard() {
           <div className="relative">
             <select
               value={period}
-              onChange={(event) => setPeriod(event.target.value)}
+              onChange={(event) => handlePeriodChange(event.target.value)}
               className="field !appearance-none !pr-10 w-full sm:w-48"
             >
               {periods.map((item) => (
@@ -464,8 +459,12 @@ export default function Dashboard() {
                                 {tank.name}
                               </p>
                               <p className="text-sm text-muted">
-                                {tank.fuelType.charAt(0).toUpperCase() +
-                                  tank.fuelType.slice(1).toLowerCase()}
+                                {tank.tankNumber
+                                  ? (/^(tank|t-|\#)/i.test(String(tank.tankNumber).trim())
+                                      ? tank.tankNumber
+                                      : `Tank ${tank.tankNumber}`)
+                                  : (tank.fuelType?.charAt(0).toUpperCase() +
+                                      tank.fuelType?.slice(1).toLowerCase())}
                               </p>
                             </div>
                             <strong

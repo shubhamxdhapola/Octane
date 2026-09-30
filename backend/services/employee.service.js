@@ -1,18 +1,24 @@
+import mongoose from "mongoose";
 import Shift from "../models/shift.model.js";
 import getDateRange from "../utils/getDateRange.js";
 
-export const getTopEmployee = async (period = "today", startDate, endDate) => {
+export const getTopEmployee = async (petrolPumpId, period = "today", startDate, endDate) => {
     const { startDate: sDate, endDate: eDate } = getDateRange(period, startDate, endDate);
+
+    const match = {
+        status: "COMPLETED",
+        endTime: {
+            $gte: sDate,
+            $lte: eDate,
+        },
+    };
+    if (petrolPumpId) {
+        match.petrolPumpId = new mongoose.Types.ObjectId(petrolPumpId);
+    }
 
     const result = await Shift.aggregate([
         {
-            $match: {
-                status: "COMPLETED",
-                endTime: {
-                    $gte: sDate,
-                    $lte: eDate,
-                },
-            },
+            $match: match,
         },
         {
             $group: {
@@ -62,22 +68,28 @@ export const getTopEmployee = async (period = "today", startDate, endDate) => {
 
 export const getEmployeePerformance = async (
     employeeId,
+    petrolPumpId,
     period = "today",
     startDate,
     endDate
 ) => {
     const { startDate: sDate, endDate: eDate } = getDateRange(period, startDate, endDate);
 
+    const match = {
+        employeeId: new mongoose.Types.ObjectId(employeeId),
+        status: "COMPLETED",
+        endTime: {
+            $gte: sDate,
+            $lte: eDate,
+        },
+    };
+    if (petrolPumpId) {
+        match.petrolPumpId = new mongoose.Types.ObjectId(petrolPumpId);
+    }
+
     const result = await Shift.aggregate([
         {
-            $match: {
-                employeeId,
-                status: "COMPLETED",
-                endTime: {
-                    $gte: sDate,
-                    $lte: eDate,
-                },
-            },
+            $match: match,
         },
         {
             $group: {

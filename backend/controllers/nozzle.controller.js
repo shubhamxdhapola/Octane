@@ -6,17 +6,18 @@ import Tank from "../models/tank.model.js";
 export const getNozzles = async (req, res) => {
     try {
         const { machineId } = req.params;
+        const petrolPumpId = req.user.petrolPumpId;
 
         if (!mongoose.Types.ObjectId.isValid(machineId)) {
             return res.status(400).json({ message: "Invalid machine id" });
         }
 
-        const machine = await Machine.findById(machineId);
+        const machine = await Machine.findOne({ _id: machineId, petrolPumpId });
         if (!machine) {
             return res.status(404).json({ message: "Machine not found" });
         }
 
-        const nozzles = await Nozzle.find({ machineId }).populate("tankId", "name tankNumber fuelType isActive");
+        const nozzles = await Nozzle.find({ machineId, petrolPumpId }).populate("tankId", "name tankNumber fuelType isActive");
         return res.status(200).json(nozzles);
     } catch (error) {
         console.log("Error in getNozzles controller :", error);
@@ -27,7 +28,8 @@ export const getNozzles = async (req, res) => {
 export const getNozzle = async (req, res) => {
     try {
         const { machineId } = req.params;
-        const nozzleId = req.params.id
+        const nozzleId = req.params.id;
+        const petrolPumpId = req.user.petrolPumpId;
 
         if (!mongoose.Types.ObjectId.isValid(machineId) ||
             !mongoose.Types.ObjectId.isValid(nozzleId)) {
@@ -35,7 +37,9 @@ export const getNozzle = async (req, res) => {
         }
 
         const nozzle = await Nozzle.findOne({
-            _id: nozzleId, machineId
+            _id: nozzleId,
+            machineId,
+            petrolPumpId,
         }).populate("tankId");
 
         if (!nozzle) {
@@ -51,7 +55,7 @@ export const getNozzle = async (req, res) => {
 export const createNozzle = async (req, res) => {
     try {
         const { machineId } = req.params;
-
+        const petrolPumpId = req.user.petrolPumpId;
         const { nozzleNumber, tankId, currentReading } = req.body;
 
         if (!mongoose.Types.ObjectId.isValid(machineId)) {
@@ -62,7 +66,7 @@ export const createNozzle = async (req, res) => {
             return res.status(400).json({ message: "Invalid tank id" });
         }
 
-        const machine = await Machine.findById(machineId);
+        const machine = await Machine.findOne({ _id: machineId, petrolPumpId });
 
         if (!machine) {
             return res.status(404).json({ message: "Machine not found" });
@@ -72,10 +76,10 @@ export const createNozzle = async (req, res) => {
             return res.status(400).json({ message: "Machine is inactive" });
         }
 
-        const tank = await Tank.findById(tankId);
+        const tank = await Tank.findOne({ _id: tankId, petrolPumpId });
 
         if (!tank) {
-            return res.status(404).json({ message: "Tank not found" });
+            return res.status(404).json({ message: "Tank not found in your petrol pump" });
         }
 
         if (!tank.isActive) {
@@ -83,15 +87,21 @@ export const createNozzle = async (req, res) => {
         }
 
         const existingNozzle = await Nozzle.findOne({
-            machineId, nozzleNumber
+            machineId,
+            nozzleNumber,
+            petrolPumpId,
         });
 
         if (existingNozzle) {
-            return res.status(409).json({ message: "Nozzle number already exists" });
+            return res.status(409).json({ message: "Nozzle number already exists for this machine" });
         }
 
         const nozzle = await Nozzle.create({
-            machineId, tankId, nozzleNumber, currentReading
+            machineId,
+            tankId,
+            nozzleNumber,
+            currentReading,
+            petrolPumpId,
         })
 
         await nozzle.populate([{
@@ -108,15 +118,14 @@ export const createNozzle = async (req, res) => {
     } catch (error) {
         console.log("Error in createNozzle controller :", error);
         return res.status(500).json({ message: "Internal server error" });
-
     }
 };
 
 export const updateNozzle = async (req, res) => {
     try {
-
         const { machineId } = req.params;
         const nozzleId = req.params.id;
+        const petrolPumpId = req.user.petrolPumpId;
 
         const { nozzleNumber, tankId, isActive } = req.body;
 
@@ -125,14 +134,16 @@ export const updateNozzle = async (req, res) => {
             return res.status(400).json({ message: "Invalid id" });
         }
         
-        const machine = await Machine.findById(machineId);
+        const machine = await Machine.findOne({ _id: machineId, petrolPumpId });
 
         if (!machine) {
             return res.status(404).json({ message: "Machine not found", });
         }
 
         const nozzle = await Nozzle.findOne({
-            _id: nozzleId, machineId
+            _id: nozzleId,
+            machineId,
+            petrolPumpId,
         });
 
         if (!nozzle) {
@@ -147,11 +158,14 @@ export const updateNozzle = async (req, res) => {
 
         if (nozzleNumber !== undefined) {
             const existingNozzle = await Nozzle.findOne({
-                machineId, nozzleNumber, _id: { $ne: nozzleId }
+                machineId,
+                nozzleNumber,
+                petrolPumpId,
+                _id: { $ne: nozzleId }
             });
 
             if (existingNozzle) {
-                return res.status(409).json({ message: "Nozzle number already exists" });
+                return res.status(409).json({ message: "Nozzle number already exists for this machine" });
             }
             updates.nozzleNumber = nozzleNumber;
         }
@@ -161,10 +175,10 @@ export const updateNozzle = async (req, res) => {
                 return res.status(400).json({ message: "Invalid tank id" });
             }
 
-            const tank = await Tank.findById(tankId);
+            const tank = await Tank.findOne({ _id: tankId, petrolPumpId });
 
             if (!tank) {
-                return res.status(404).json({ message: "Tank not found" });
+                return res.status(404).json({ message: "Tank not found in your petrol pump" });
             }
             updates.tankId = tankId;
         }
@@ -173,8 +187,9 @@ export const updateNozzle = async (req, res) => {
             updates.isActive = isActive;
         }
 
-        const updatedNozzle = await Nozzle.findByIdAndUpdate(
-            { _id: nozzleId, isOccupied: false }, updates,
+        const updatedNozzle = await Nozzle.findOneAndUpdate(
+            { _id: nozzleId, petrolPumpId, isOccupied: false },
+            updates,
             { runValidators: true, returnDocument: "after" }
         );
 
@@ -194,20 +209,21 @@ export const updateNozzle = async (req, res) => {
 export const deleteNozzle = async (req, res) => {
     try {
         const { machineId } = req.params;
-        const nozzleId = req.params.id
+        const nozzleId = req.params.id;
+        const petrolPumpId = req.user.petrolPumpId;
 
         if (!mongoose.Types.ObjectId.isValid(machineId) ||
             !mongoose.Types.ObjectId.isValid(nozzleId)) {
             return res.status(400).json({ message: "Invalid id" });
         }
 
-        const machine = await Machine.findById(machineId);
+        const machine = await Machine.findOne({ _id: machineId, petrolPumpId });
 
         if (!machine) {
             return res.status(404).json({ message: "Machine not found", });
         }
 
-        const nozzle = await Nozzle.findById(nozzleId)
+        const nozzle = await Nozzle.findOne({ _id: nozzleId, machineId, petrolPumpId });
 
         if (!nozzle) {
             return res.status(404).json({ message: "Nozzle not found" });
@@ -217,7 +233,10 @@ export const deleteNozzle = async (req, res) => {
         }
 
         const deletedNozzle = await Nozzle.findOneAndDelete({
-            _id: nozzleId, machineId, isOccupied: false
+            _id: nozzleId,
+            machineId,
+            petrolPumpId,
+            isOccupied: false
         });
 
         if (!deletedNozzle) {

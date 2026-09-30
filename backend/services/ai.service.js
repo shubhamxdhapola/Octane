@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import ai from "../configs/gemini.js";
 import { generateResponse } from "../utils/buildPrompt.js";
 import { detectIntent } from "../utils/detectIntent.js";
@@ -10,7 +11,11 @@ import { generateDailyReport } from "./report.service.js";
 import { getLastRefill, getRecentTankRefills, getTotalRefilled } from "./tank.refill.service.js";
 import { getOngoingShifts, getCompletedShifts } from "./shift.service.js";
 
-export const chatWithAI = async (message) => {
+export const chatWithAI = async (message, petrolPumpId) => {
+    const pumpObjectId = petrolPumpId && mongoose.Types.ObjectId.isValid(petrolPumpId)
+        ? new mongoose.Types.ObjectId(petrolPumpId)
+        : petrolPumpId;
+
     const { intent, period, startDate, endDate } = await detectIntent(message);
 
     switch (intent) {
@@ -24,8 +29,8 @@ export const chatWithAI = async (message) => {
                 else activePeriod = "today";
             }
             const { startDate: sDate, endDate: eDate } = getDateRange(activePeriod, startDate, endDate);
-            const overview = await getOverviewCards(sDate, eDate);
-            const fuelSold = await getFuelSoldSummary(sDate, eDate);
+            const overview = await getOverviewCards(petrolPumpId, sDate, eDate);
+            const fuelSold = await getFuelSoldSummary(petrolPumpId, sDate, eDate);
             return await generateResponse(
                 message,
                 { overview, fuelSold, period: activePeriod }
@@ -35,7 +40,7 @@ export const chatWithAI = async (message) => {
         case "TODAY_FUEL":
         case "TODAY_FUEL_SOLD": {
             const { startDate: sDate, endDate: eDate } = getDateRange(period === "none" ? "today" : period, startDate, endDate);
-            const summary = await getFuelSoldSummary(sDate, eDate);
+            const summary = await getFuelSoldSummary(petrolPumpId, sDate, eDate);
             return await generateResponse(
                 message, summary
             );
@@ -43,7 +48,7 @@ export const chatWithAI = async (message) => {
 
         case "TANK_STATUS":
         case "LOW_FUEL_TANKS": {
-            const tanks = await getTankStatus();
+            const tanks = await getTankStatus(petrolPumpId);
             return await generateResponse(
                 message, tanks
             );
@@ -52,8 +57,8 @@ export const chatWithAI = async (message) => {
         case "TODAY_SHIFTS":
         case "ONGOING_SHIFTS":
         case "COMPLETED_SHIFTS": {
-            const ongoing = await getOngoingShifts();
-            const completed = await getCompletedShifts(period === "none" ? "today" : period, startDate, endDate);
+            const ongoing = await getOngoingShifts(petrolPumpId);
+            const completed = await getCompletedShifts(petrolPumpId, period === "none" ? "today" : period, startDate, endDate);
             return await generateResponse(
                 message,
                 { ongoing, completed }
@@ -61,35 +66,35 @@ export const chatWithAI = async (message) => {
         }
 
         case "CURRENT_FUEL_PRICE": {
-            const prices = await getCurrentFuelPrices();
+            const prices = await getCurrentFuelPrices(petrolPumpId);
             return await generateResponse(
                 message, prices
             );
         }
 
         case "FUEL_PRICE_HISTORY": {
-            const history = await getFuelPriceHistory(period === "none" ? "7" : period, startDate, endDate);
+            const history = await getFuelPriceHistory(petrolPumpId, period === "none" ? "7" : period, startDate, endDate);
             return await generateResponse(
                 message, history
             );
         }
 
         case "RECENT_REFILLS": {
-            const recentTankRefills = await getRecentTankRefills(period, startDate, endDate);
+            const recentTankRefills = await getRecentTankRefills(petrolPumpId, period, startDate, endDate);
             return await generateResponse(
                 message, recentTankRefills
             );
         }
 
         case "LAST_REFILL": {
-            const lastRefill = await getLastRefill();
+            const lastRefill = await getLastRefill(petrolPumpId);
             return await generateResponse(
                 message, lastRefill
             );
         }
 
         case "TOTAL_REFILLED": {
-            const totalRefill = await getTotalRefilled(period, startDate, endDate);
+            const totalRefill = await getTotalRefilled(petrolPumpId, period, startDate, endDate);
             return await generateResponse(
                 message, totalRefill
             );
@@ -97,17 +102,17 @@ export const chatWithAI = async (message) => {
 
         case "DAILY_REPORT":
         case "REPORT": {
-            const dailyReport = await generateDailyReport(period === "none" ? "today" : period, startDate, endDate);
+            const dailyReport = await generateDailyReport(petrolPumpId, period === "none" ? "today" : period, startDate, endDate);
             return await generateResponse(
                 message, dailyReport
             );
         }
 
         case "TOP_EMPLOYEE": {
-            let topEmp = await getTopEmployee(period === "none" ? "today" : period, startDate, endDate);
+            let topEmp = await getTopEmployee(petrolPumpId, period === "none" ? "today" : period, startDate, endDate);
             if (!topEmp && (period === "today" || period === "none" || !period)) {
                 // Fallback to last 30 days if no shifts completed today to ensure some results
-                topEmp = await getTopEmployee("30");
+                topEmp = await getTopEmployee(petrolPumpId, "30");
             }
             return await generateResponse(
                 message, topEmp
@@ -116,7 +121,9 @@ export const chatWithAI = async (message) => {
 
         case "EMPLOYEE_PERFORMANCE": {
             const User = (await import("../models/user.model.js")).default;
-            const employees = await User.find({ role: "employee" });
+            const empFilter = { role: "employee" };
+            if (petrolPumpId) empFilter.petrolPumpId = petrolPumpId;
+            const employees = await User.find(empFilter);
             const matchedEmp = employees.find(emp =>
                 message.toLowerCase().includes(emp.name.toLowerCase())
             );
@@ -130,12 +137,15 @@ export const chatWithAI = async (message) => {
             } else {
                 const Shift = (await import("../models/shift.model.js")).default;
                 const { startDate: sDate, endDate: eDate } = getDateRange(period === "none" ? "today" : period, startDate, endDate);
+                const matchStage = {
+                    status: "COMPLETED",
+                    endTime: { $gte: sDate, $lte: eDate }
+                };
+                if (pumpObjectId) matchStage.petrolPumpId = pumpObjectId;
+
                 const result = await Shift.aggregate([
                     {
-                        $match: {
-                            status: "COMPLETED",
-                            endTime: { $gte: sDate, $lte: eDate }
-                        }
+                        $match: matchStage
                     },
                     {
                         $group: {
@@ -169,10 +179,10 @@ export const chatWithAI = async (message) => {
         }
 
         case "TOP_MACHINE": {
-            let topMachine = await getTopMachine(period === "none" ? "today" : period, startDate, endDate);
+            let topMachine = await getTopMachine(petrolPumpId, period === "none" ? "today" : period, startDate, endDate);
             if (!topMachine && (period === "today" || period === "none" || !period)) {
                 // Fallback to last 30 days if no data today
-                topMachine = await getTopMachine("30");
+                topMachine = await getTopMachine(petrolPumpId, "30");
             }
             return await generateResponse(
                 message, topMachine
@@ -181,7 +191,9 @@ export const chatWithAI = async (message) => {
 
         case "MACHINE_PERFORMANCE": {
             const Machine = (await import("../models/machine.model.js")).default;
-            const machines = await Machine.find();
+            const machineFilter = {};
+            if (petrolPumpId) machineFilter.petrolPumpId = petrolPumpId;
+            const machines = await Machine.find(machineFilter);
             const matchedMachine = machines.find(m =>
                 message.toLowerCase().includes(m.name.toLowerCase()) ||
                 message.toLowerCase().includes(m.machineNumber.toLowerCase())
@@ -196,12 +208,15 @@ export const chatWithAI = async (message) => {
             } else {
                 const Shift = (await import("../models/shift.model.js")).default;
                 const { startDate: sDate, endDate: eDate } = getDateRange(period === "none" ? "today" : period, startDate, endDate);
+                const matchStage = {
+                    status: "COMPLETED",
+                    endTime: { $gte: sDate, $lte: eDate }
+                };
+                if (pumpObjectId) matchStage.petrolPumpId = pumpObjectId;
+
                 const result = await Shift.aggregate([
                     {
-                        $match: {
-                            status: "COMPLETED",
-                            endTime: { $gte: sDate, $lte: eDate }
-                        }
+                        $match: matchStage
                     },
                     {
                         $group: {

@@ -1,7 +1,7 @@
 {
-  "name": "sai-petrol-pump-backend",
+  "name": "octane-backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Octane — Ai Powered Multi-Tenant Petrol Pump Management Platform",
   "main": "index.js",
   "scripts": {
     "dev": "nodemon index.js"

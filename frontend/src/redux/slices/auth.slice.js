@@ -21,6 +21,26 @@ export const loginUser = createAsyncThunk(
   }
 );
 
+export const registerOwner = createAsyncThunk(
+  'auth/register',
+  async (formData, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.post(
+        API_PATHS.AUTH.REGISTER, formData
+      );
+      if (data.token) {
+        localStorage.setItem('authToken', data.token);
+      }
+      return data.user;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || error.response?.data || 'Unable to register'
+      );
+    }
+  }
+);
+
+
 export const logoutUser = createAsyncThunk('auth/logout', async () => {
   try {
     await axiosInstance.post(API_PATHS.AUTH.LOGOUT);
@@ -70,6 +90,20 @@ const authSlice = createSlice({
         state.user = action.payload;
       })
       .addCase(loginUser.rejected, (state, action) => {
+        state.loading = false;
+        state.authenticating = false;
+        state.error = action.payload;
+      })
+      .addCase(registerOwner.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(registerOwner.fulfilled, (state, action) => {
+        state.loading = false;
+        state.authenticating = false;
+        state.user = action.payload;
+      })
+      .addCase(registerOwner.rejected, (state, action) => {
         state.loading = false;
         state.authenticating = false;
         state.error = action.payload;

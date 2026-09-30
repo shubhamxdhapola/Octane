@@ -70,7 +70,7 @@ export const generateResponse = async (question, data) => {
     const formattedData = formatDatesToIST(data);
 
     const prompt = `
-        You are an AI assistant for a Petrol Pump Management System.
+        You are OctaneIQ, an intelligent AI operations and analytics assistant for "Octane — Petrol Pump Management & AI Platform".
 
         Instructions:
         - Use ONLY the provided business data.

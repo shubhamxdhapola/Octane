@@ -3,6 +3,7 @@ import AppLayout from "../layouts/AppLayout";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicRoute from "./PublicRoute";
 import Login from "../pages/Login";
+import Register from "../pages/Register";
 import Dashboard from "../pages/admin/Dashboard";
 import Tanks from "../pages/admin/Tanks";
 import Machines from "../pages/admin/Machines";
@@ -25,6 +26,7 @@ const router = createBrowserRouter([
     element: <PublicRoute />,
     children: [
       { path: "/login", element: <Login /> },
+      { path: "/register", element: <Register /> },
     ],
   },
   {

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Shift from "../models/shift.model.js";
 import TankRefill from "../models/tank.refill.model.js";
 import { exportRefillExcel, exportSalesExcel } from "../utils/exportExcelSheets.js";
@@ -5,6 +6,7 @@ import getDateRange from "../utils/getDateRange.js";
 
 export const getSalesReport = async (req, res) => {
     try {
+        const petrolPumpId = req.user.petrolPumpId;
         const { period, startDate, endDate, download } = req.query;
 
         const {
@@ -15,6 +17,7 @@ export const getSalesReport = async (req, res) => {
         const report = await Shift.aggregate([
             {
                 $match: {
+                    petrolPumpId: new mongoose.Types.ObjectId(petrolPumpId),
                     status: "COMPLETED",
                     endTime: {
                         $gte: start,
@@ -22,6 +25,7 @@ export const getSalesReport = async (req, res) => {
                     }
                 }
             },
+
 
             { $unwind: "$nozzles" },
 
@@ -144,6 +148,7 @@ export const getSalesReport = async (req, res) => {
 
 export const getRefillReport = async (req, res) => {
     try {
+        const petrolPumpId = req.user.petrolPumpId;
         const { period, startDate, endDate, download } = req.query;
 
         const {
@@ -152,6 +157,7 @@ export const getRefillReport = async (req, res) => {
         } = getDateRange(period, startDate, endDate);
 
         const refills = await TankRefill.find({
+            petrolPumpId,
             refillDate: { $gte: start, $lte: end }
         })
             .populate("tankId", "name tankNumber fuelType")

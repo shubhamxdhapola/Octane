@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { FiLock, FiUser, FiPhone, FiChevronRight } from "react-icons/fi";
+import { FiLock, FiUser, FiPhone, FiMapPin } from "react-icons/fi";
+import { TbGasStation } from "react-icons/tb";
 import { useDispatch, useSelector } from "react-redux";
 import PageHeader from "../../components/PageHeader";
 import { Field } from "../../components/FormControls";
-import { apiErrorMessage, authApi, userApi } from "../../utils/api";
+import { apiErrorMessage, authApi, userApi, petrolPumpApi } from "../../utils/api";
 import { updateCurrentUser } from "../../redux/slices/auth.slice";
 import { showSuccessToast, showErrorToast } from "../../utils/helper";
 
@@ -11,8 +12,19 @@ export default function Settings() {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
 
-  // Active Tab state: "profile" or "password"
-  const [activeTab, setActiveTab] = useState("profile");
+  // Active Tab state: "pump", "profile" or "password"
+  const [activeTab, setActiveTab] = useState("pump");
+
+  // Petrol Pump Form State
+  const [pumpForm, setPumpForm] = useState({
+    name: "",
+    address: "",
+    city: "",
+    state: "",
+    pincode: "",
+  });
+  const [updatingPump, setUpdatingPump] = useState(false);
+  const [fetchingPump, setFetchingPump] = useState(false);
 
   // Profile Form State
   const [profileForm, setProfileForm] = useState({ name: "", phone: "" });
@@ -21,6 +33,56 @@ export default function Settings() {
   // Password Form State
   const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "" });
   const [savingPassword, setSavingPassword] = useState(false);
+
+  // Load pump details
+  useEffect(() => {
+    // 1. Immediate pre-population from user.petrolPump in Redux
+    if (user?.petrolPump) {
+      setPumpForm({
+        name: user.petrolPump.name || "",
+        address: user.petrolPump.address || "",
+        city: user.petrolPump.city || "",
+        state: user.petrolPump.state || "",
+        pincode: user.petrolPump.pincode || "",
+      });
+      if (user.petrolPump.name && user.petrolPump.address) {
+        return;
+      }
+    }
+
+    // 2. Fetch fresh details from backend only if not loaded yet
+    const fetchPump = async () => {
+      setFetchingPump(true);
+      try {
+        const data = await petrolPumpApi.getProfile();
+        const pump = data?.petrolPump || data;
+        if (pump && typeof pump === "object") {
+          setPumpForm({
+            name: pump.name || "",
+            address: pump.address || "",
+            city: pump.city || "",
+            state: pump.state || "",
+            pincode: pump.pincode || "",
+          });
+        }
+      } catch (err) {
+        if (user?.petrolPump) {
+          setPumpForm({
+            name: user.petrolPump.name || "",
+            address: user.petrolPump.address || "",
+            city: user.petrolPump.city || "",
+            state: user.petrolPump.state || "",
+            pincode: user.petrolPump.pincode || "",
+          });
+        }
+      } finally {
+        setFetchingPump(false);
+      }
+    };
+
+    fetchPump();
+  }, [user]);
+
 
   // Sync profileForm with logged in user details
   useEffect(() => {
@@ -31,6 +93,48 @@ export default function Settings() {
       });
     }
   }, [user]);
+
+  const handleUpdatePump = async (event) => {
+    event.preventDefault();
+    setUpdatingPump(true);
+
+    const nameTrim = (pumpForm.name || "").trim();
+    if (!nameTrim) {
+      showErrorToast("Petrol pump name is required");
+      setUpdatingPump(false);
+      return;
+    }
+
+    try {
+      const response = await petrolPumpApi.updateProfile({
+        name: nameTrim,
+        address: (pumpForm.address || "").trim(),
+        city: (pumpForm.city || "").trim(),
+        state: (pumpForm.state || "").trim(),
+        pincode: (pumpForm.pincode || "").trim(),
+      });
+
+      const updated = response?.petrolPump || response;
+      if (updated && typeof updated === "object") {
+        setPumpForm({
+          name: updated.name || "",
+          address: updated.address || "",
+          city: updated.city || "",
+          state: updated.state || "",
+          pincode: updated.pincode || "",
+        });
+        // Update current user in redux with new petrolPump
+        if (user) {
+          dispatch(updateCurrentUser({ petrolPump: updated }));
+        }
+      }
+      showSuccessToast(response?.message || "Petrol pump profile updated successfully");
+    } catch (err) {
+      showErrorToast(apiErrorMessage(err, "Unable to update petrol pump profile"));
+    } finally {
+      setUpdatingPump(false);
+    }
+  };
 
   const handleUpdateProfile = async (event) => {
     event.preventDefault();
@@ -133,11 +237,23 @@ export default function Settings() {
     <>
       <PageHeader
         title="Settings"
-        subtitle="Manage your profile details and security configurations"
+        subtitle="Manage your petrol pump profile, owner details, and security configurations"
       />
       {/* Horizontal Tabs Navigation */}
       <div className="mt-6 border-b border-slate-200">
         <nav className="flex gap-6 -mb-px">
+          <button
+            onClick={() => setActiveTab("pump")}
+            className={`flex items-center gap-2 pb-4 text-sm font-semibold border-b-2 transition-all duration-200 ${
+              activeTab === "pump"
+                ? "border-brand text-brand"
+                : "border-transparent text-muted hover:text-ink hover:border-slate-300"
+            }`}
+          >
+            <TbGasStation className="text-lg" />
+            <span>Petrol Pump Profile</span>
+          </button>
+
           <button
             onClick={() => setActiveTab("profile")}
             className={`flex items-center gap-2 pb-4 text-sm font-semibold border-b-2 transition-all duration-200 ${
@@ -147,7 +263,7 @@ export default function Settings() {
             }`}
           >
             <FiUser className="text-base" />
-            <span>Update Profile</span>
+            <span>Owner Account</span>
           </button>
 
           <button
@@ -167,7 +283,75 @@ export default function Settings() {
       {/* Form Content Area */}
       <div className="mt-8">
         <section className="soft-card !rounded-2xl p-6 sm:p-8 border border-slate-200 bg-white shadow-sm max-w-3xl">
-          {activeTab === "profile" ? (
+          {activeTab === "pump" ? (
+            <div className="w-full">
+              <div className="flex items-center gap-4 border-b border-slate-100 pb-6">
+                <div className="grid h-12 w-12 place-items-center rounded-xl bg-blue-50 text-2xl text-brand border border-blue-100/50 shadow-xs">
+                  <TbGasStation />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800">Petrol Pump Details</h2>
+                  <p className="text-sm text-muted">Update your station branding and location settings</p>
+                </div>
+              </div>
+
+              {fetchingPump ? (
+                <div className="py-8 text-center text-sm text-muted">Loading petrol pump details...</div>
+              ) : (
+                <form onSubmit={handleUpdatePump} className="mt-7 space-y-6">
+                  <Field
+                    label="Petrol Pump Name"
+                    type="text"
+                    placeholder="Enter petrol pump name"
+                    icon={<TbGasStation />}
+                    value={pumpForm.name}
+                    onChange={(e) => setPumpForm({ ...pumpForm, name: e.target.value })}
+                    required
+                  />
+                  <Field
+                    label="Station Address"
+                    type="text"
+                    placeholder="Enter station address"
+                    icon={<FiMapPin />}
+                    value={pumpForm.address}
+                    onChange={(e) => setPumpForm({ ...pumpForm, address: e.target.value })}
+                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <Field
+                      label="City"
+                      type="text"
+                      placeholder="City"
+                      value={pumpForm.city}
+                      onChange={(e) => setPumpForm({ ...pumpForm, city: e.target.value })}
+                    />
+                    <Field
+                      label="State"
+                      type="text"
+                      placeholder="State"
+                      value={pumpForm.state}
+                      onChange={(e) => setPumpForm({ ...pumpForm, state: e.target.value })}
+                    />
+                    <Field
+                      label="Pincode"
+                      type="text"
+                      placeholder="Pincode"
+                      value={pumpForm.pincode}
+                      onChange={(e) => setPumpForm({ ...pumpForm, pincode: e.target.value })}
+                    />
+                  </div>
+                  <div className="flex justify-start pt-2">
+                    <button
+                      type="submit"
+                      className="btn-primary px-8 shadow-md hover:shadow-lg transition-all duration-200"
+                      disabled={updatingPump}
+                    >
+                      {updatingPump ? "Updating Station..." : "Update Petrol Pump"}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          ) : activeTab === "profile" ? (
             <div className="w-full">
               <div className="flex items-center gap-4 border-b border-slate-100 pb-6">
                 <div className="grid h-12 w-12 place-items-center rounded-xl bg-blue-50 text-xl text-brand border border-blue-100/50 shadow-xs">

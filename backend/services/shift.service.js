@@ -1,10 +1,11 @@
 import Shift from "../models/shift.model.js";
 import getDateRange from "../utils/getDateRange.js";
 
-export const getOngoingShifts = async () => {
-    return await Shift.find({
-        status: "ONGOING",
-    })
+export const getOngoingShifts = async (petrolPumpId) => {
+    const filter = { status: "ONGOING" };
+    if (petrolPumpId) filter.petrolPumpId = petrolPumpId;
+
+    return await Shift.find(filter)
         .populate("employeeId", "name")
         .populate("machineId", "name machineNumber")
         .sort({
@@ -12,16 +13,19 @@ export const getOngoingShifts = async () => {
         });
 };
 
-export const getCompletedShifts = async (period = "today", startDate, endDate) => {
+export const getCompletedShifts = async (petrolPumpId, period = "today", startDate, endDate) => {
     const { startDate: sDate, endDate: eDate } = getDateRange(period, startDate, endDate);
 
-    return await Shift.find({
+    const filter = {
         status: "COMPLETED",
         endTime: {
             $gte: sDate,
             $lte: eDate,
         },
-    })
+    };
+    if (petrolPumpId) filter.petrolPumpId = petrolPumpId;
+
+    return await Shift.find(filter)
         .populate("employeeId", "name")
         .populate("machineId", "name machineNumber")
         .sort({

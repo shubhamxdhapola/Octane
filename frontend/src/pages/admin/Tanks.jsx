@@ -40,7 +40,7 @@ export default function Tanks() {
     error: reduxError,
   } = useSelector((state) => state.tank);
   const items = allTanks || [];
-  const loading = fetchingTanks;
+  const loading = fetchingTanks && allTanks === null;
   const saving = savingTank;
 
   const [open, setOpen] = useState(false);
@@ -63,8 +63,10 @@ export default function Tanks() {
     (typeof reduxError === "string" ? reduxError : reduxError?.message);
 
   useEffect(() => {
-    dispatch(getAllTanks());
-  }, [dispatch]);
+    if (allTanks === null) {
+      dispatch(getAllTanks());
+    }
+  }, [dispatch, allTanks]);
 
   const filtered = items.filter((tank) => {
     const fuelOk = fuelFilter === "all" || tank.fuelType === fuelFilter;
@@ -286,7 +288,6 @@ export default function Tanks() {
                 <thead className="text-muted">
                   <tr>
                     <th className="p-4">Tank Details</th>
-                    <th>Tank Number</th>
                     <th>Fuel Type</th>
                     <th>Capacity</th>
                     <th>Current Quantity</th>
@@ -303,20 +304,13 @@ export default function Tanks() {
                       : 0;
                     return (
                       <tr key={tank._id} className="border-t border-slate-200">
-                        <td className="p-4">
-                          <div className="flex items-center gap-4">
-                            {/* <div
-                              className={`grid h-12 w-12 shrink-0 place-items-center rounded-full ${tank.fuelType === "DIESEL" ? "bg-blue-100 text-brand" : pct < 30 ? "bg-red-100 text-red-500" : "bg-emerald-100 text-emerald-600"}`}
-                            >
-                              <MdOutlineLocalGasStation />
-                            </div> */}
-                            <div>
-                              <p className="font-bold">{tank.name}</p>
-                              <p className="text-xs text-muted">Storage Tank</p>
-                            </div>
+
+                        <td className="font-semibold p-4">
+                          <div>
+                            <p className="font-bold">{tank.name}</p>
+                            <p className="text-xs text-muted">{tank?.tankNumber}</p>
                           </div>
                         </td>
-                        <td className="font-semibold">{tank.tankNumber}</td>
                         <td>
                           <Badge
                             tone={tank.fuelType === "PREMIUM" ? "purple" : tank.fuelType === "DIESEL" ? "blue" : "green"}

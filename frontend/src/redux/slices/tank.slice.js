@@ -12,6 +12,16 @@ export const getAllTanks = createAsyncThunk(
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || error.response?.data || "Unable to fetch tanks");
         }
+    },
+    {
+        condition: (force, { getState }) => {
+            if (force) return true;
+            const { tank } = getState();
+            if (tank.allTanks !== null) {
+                return false;
+            }
+            return true;
+        }
     }
 );
 
@@ -55,7 +65,7 @@ const tankSlice = createSlice({
     name: 'tank',
     initialState: {
         allTanks: null,
-        fetchingTanks: true,
+        fetchingTanks: false,
         savingTank: false,
         deletingTank: false,
         error: null,

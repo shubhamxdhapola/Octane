@@ -5,17 +5,18 @@ import TankRefill from "../models/tank.refill.model.js";
 export const getRefills = async (req, res) => {
     try {
         const { tankId } = req.params;
+        const petrolPumpId = req.user.petrolPumpId;
 
         if (!mongoose.Types.ObjectId.isValid(tankId)) {
             return res.status(400).json({ message: "Invalid tank id" });
         }
 
-        const tank = await Tank.findById(tankId);
+        const tank = await Tank.findOne({ _id: tankId, petrolPumpId });
         if (!tank) {
-            return res.status(404).json({ message: "Tank not found", });
+            return res.status(404).json({ message: "Tank not found in your petrol pump" });
         }
 
-        const refills = await TankRefill.find({ tankId }).sort({ refillDate: -1 });
+        const refills = await TankRefill.find({ tankId, petrolPumpId }).sort({ refillDate: -1 });
         return res.status(200).json(refills);
 
     } catch (error) {
@@ -27,7 +28,8 @@ export const getRefills = async (req, res) => {
 export const getRefill = async (req, res) => {
     try {
         const { tankId } = req.params;
-        const refillId = req.params.id
+        const refillId = req.params.id;
+        const petrolPumpId = req.user.petrolPumpId;
 
         if (!mongoose.Types.ObjectId.isValid(tankId) ||
             !mongoose.Types.ObjectId.isValid(refillId)) {
@@ -35,7 +37,9 @@ export const getRefill = async (req, res) => {
         }
 
         const refill = await TankRefill.findOne({
-            _id: refillId, tankId,
+            _id: refillId,
+            tankId,
+            petrolPumpId,
         }).populate("tankId", "name tankNumber fuelType");
 
         if (!refill) {
@@ -55,6 +59,7 @@ export const createRefill = async (req, res) => {
 
     try {
         const { tankId } = req.params;
+        const petrolPumpId = req.user.petrolPumpId;
         const { quantity, refillDate, pricePerLitre, remarks } = req.body;
 
         if (!mongoose.Types.ObjectId.isValid(tankId)) {
@@ -63,10 +68,10 @@ export const createRefill = async (req, res) => {
 
         session.startTransaction();
 
-        const tank = await Tank.findById(tankId).session(session);
+        const tank = await Tank.findOne({ _id: tankId, petrolPumpId }).session(session);
 
         if (!tank) {
-            return res.status(404).json({ message: "Tank not found", });
+            return res.status(404).json({ message: "Tank not found in your petrol pump" });
         }
 
         if (!tank.isActive) {
@@ -78,16 +83,18 @@ export const createRefill = async (req, res) => {
         }
 
         const refill = await TankRefill.create(
-            [{ tankId, quantity, pricePerLitre, refillDate, remarks }],
+            [{ tankId, quantity, pricePerLitre, refillDate, remarks, petrolPumpId }],
             { session }
         );
 
-        await Tank.findByIdAndUpdate(
-            tankId, {
-            $inc: {
-                currentQuantity: quantity,
+        await Tank.findOneAndUpdate(
+            { _id: tankId, petrolPumpId },
+            {
+                $inc: {
+                    currentQuantity: quantity,
+                },
             },
-        }, { session, runValidators: true }
+            { session, runValidators: true }
         );
 
         await session.commitTransaction();
@@ -118,7 +125,8 @@ export const updateRefill = async (req, res) => {
 
     try {
         const { tankId } = req.params;
-        const refillId = req.params.id
+        const refillId = req.params.id;
+        const petrolPumpId = req.user.petrolPumpId;
         const { quantity, refillDate, pricePerLitre, remarks } = req.body;
 
         if (!mongoose.Types.ObjectId.isValid(tankId) ||
@@ -129,18 +137,20 @@ export const updateRefill = async (req, res) => {
         session.startTransaction();
 
         const refill = await TankRefill.findOne({
-            _id: refillId, tankId,
+            _id: refillId,
+            tankId,
+            petrolPumpId,
         }).session(session);
 
         if (!refill) {
             return res.status(404).json({ message: "Refill not found", });
         }
 
-        const tank = await Tank.findById(tankId)
+        const tank = await Tank.findOne({ _id: tankId, petrolPumpId })
             .session(session);
 
         if (!tank) {
-            return res.status(404).json({ message: "Tank not found" })
+            return res.status(404).json({ message: "Tank not found in your petrol pump" })
         }
 
         const updates = {};
@@ -172,12 +182,15 @@ export const updateRefill = async (req, res) => {
         if (remarks !== undefined)
             updates.remarks = remarks;
 
-        const updatedRefill = await TankRefill.findByIdAndUpdate(
-            refillId, updates, {
-            runValidators: true,
-            returnDocument: "after",
-            session,
-        });
+        const updatedRefill = await TankRefill.findOneAndUpdate(
+            { _id: refillId, petrolPumpId },
+            updates,
+            {
+                runValidators: true,
+                returnDocument: "after",
+                session,
+            }
+        );
 
         await session.commitTransaction();
 
@@ -202,7 +215,8 @@ export const deleteRefill = async (req, res) => {
 
     try {
         const { tankId } = req.params;
-        const refillId = req.params.id
+        const refillId = req.params.id;
+        const petrolPumpId = req.user.petrolPumpId;
 
         if (!mongoose.Types.ObjectId.isValid(tankId) ||
             !mongoose.Types.ObjectId.isValid(refillId)) {
@@ -211,15 +225,17 @@ export const deleteRefill = async (req, res) => {
 
         session.startTransaction();
 
-        const tank = await Tank.findById(tankId)
+        const tank = await Tank.findOne({ _id: tankId, petrolPumpId })
             .session(session);
 
         if (!tank) {
-            return res.status(404).json({ message: "Tank not found" })
+            return res.status(404).json({ message: "Tank not found in your petrol pump" })
         }
 
         const refill = await TankRefill.findOne({
-            _id: refillId, tankId,
+            _id: refillId,
+            tankId,
+            petrolPumpId,
         }).session(session);
 
         if (!refill) {
@@ -233,8 +249,9 @@ export const deleteRefill = async (req, res) => {
         tank.currentQuantity -= refill.quantity
         await tank.save({ session })
 
-        await TankRefill.findByIdAndDelete(
-            refillId, { session }
+        await TankRefill.findOneAndDelete(
+            { _id: refillId, petrolPumpId },
+            { session }
         );
 
         await session.commitTransaction();

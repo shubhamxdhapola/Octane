@@ -12,6 +12,16 @@ export const getAllEmployees = createAsyncThunk(
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || error.response?.data || "Unable to fetch employees");
         }
+    },
+    {
+        condition: (force, { getState }) => {
+            if (force) return true;
+            const { employee } = getState();
+            if (employee.allEmployees !== null) {
+                return false;
+            }
+            return true;
+        }
     }
 );
 
@@ -55,7 +65,7 @@ const employeeSlice = createSlice({
     name: 'employee',
     initialState: {
         allEmployees: null,
-        fetchingEmployees: true,
+        fetchingEmployees: false,
         savingEmployee: false,
         deletingEmployee: false,
         error: null,

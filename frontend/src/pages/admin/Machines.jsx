@@ -14,6 +14,8 @@ import {
   addMachine,
   updateMachine,
   deleteMachine,
+  getMachineSalesSummary,
+  getNozzlesForMachines,
 } from "../../redux/slices/machine.slice";
 import { machineApi, apiErrorMessage } from "../../utils/api";
 import { number } from "../../utils/formatters";
@@ -28,13 +30,16 @@ export default function Machines() {
   const dispatch = useDispatch();
   const {
     allMachines,
+    salesSummary: reduxSalesSummary,
+    nozzlesByMachine: reduxNozzles,
     fetchingMachines,
     error: reduxError,
   } = useSelector((state) => state.machine);
   const items = allMachines || [];
-  const loading = fetchingMachines;
+  const loading = fetchingMachines && allMachines === null;
+  const salesSummary = reduxSalesSummary || [];
+  const nozzlesByMachine = reduxNozzles || {};
 
-  const [nozzlesByMachine, setNozzlesByMachine] = useState({});
   const [statusFilter, setStatusFilter] = useState("all");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -46,7 +51,6 @@ export default function Machines() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const [salesSummary, setSalesSummary] = useState([]);
   const [periodFilter, setPeriodFilter] = useState("today"); // "today", "seven", "fifteen", "thirty"
 
   useEffect(() => {
@@ -58,24 +62,18 @@ export default function Machines() {
     (typeof reduxError === "string" ? reduxError : reduxError?.message);
 
   useEffect(() => {
-    dispatch(getAllMachines());
-    machineApi
-      .salesSummary()
-      .then((data) => setSalesSummary(data))
-      .catch((err) => console.error("Error fetching sales summary:", err));
-  }, [dispatch]);
+    if (allMachines === null) {
+      dispatch(getAllMachines());
+    }
+    if (reduxSalesSummary === null) {
+      dispatch(getMachineSalesSummary());
+    }
+  }, [dispatch, allMachines, reduxSalesSummary]);
 
   useEffect(() => {
-    if (!items.length) return;
-    Promise.all(
-      items.map(async (machine) => [
-        machine._id,
-        await machineApi.nozzles(machine._id).catch(() => []),
-      ]),
-    )
-      .then((pairs) => setNozzlesByMachine(Object.fromEntries(pairs)))
-      .catch(() => {});
-  }, [items]);
+    if (!items.length || reduxNozzles !== null) return;
+    dispatch(getNozzlesForMachines(items.map((m) => m._id)));
+  }, [dispatch, items, reduxNozzles]);
 
   const filtered = items.filter(
     (machine) =>

@@ -1,4 +1,4 @@
-# ⛽ Octane — Petrol Pump Management & AI Platform
+# ⛽ Octane — AI Powered Fuel station Management Platform
 
 An **AI-powered, multi-tenant SaaS platform** for modern petrol pump management and retail station operations. Octane allows multiple petrol pump owners to register and manage their fuel retail business with complete data isolation, intelligent shift workflows, automated fuel pricing with live Indian market syncing, and a context-aware **AI assistant powered by Google Gemini**.
 
